@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FooterSection from "@/components/FooterSection";
+import logoSvg from "@/assets/logo aawaaj.svg";
 import {
   ALL_STATES,
   STATES_AND_DISTRICTS,
@@ -463,8 +464,9 @@ export default function Register() {
 
       {/* Navbar minimal */}
       <header className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-white/10 bg-primary/80 backdrop-blur-sm sticky top-0 z-40">
-        <a href="/" className="font-display text-2xl font-black text-white">
-          Aawaaj<span className="text-saffron">.</span>
+        <a href="/" className="flex items-center gap-2">
+          <img src={logoSvg} alt="Aawaaj Movement" className="h-8 w-8 object-contain" />
+          <span className="font-display text-xl font-black text-white">Aawaaj<span className="text-saffron">.</span></span>
         </a>
         <StepDots current={step} total={4} />
         <div className="hidden sm:flex items-center gap-1.5 text-white/50 text-xs font-body">

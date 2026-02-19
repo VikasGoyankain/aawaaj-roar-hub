@@ -1,3 +1,5 @@
+import logoSvg from "@/assets/logo aawaaj.svg";
+
 const FooterSection = () => {
   return (
     <footer className="gradient-dark-green text-white">
@@ -8,8 +10,11 @@ const FooterSection = () => {
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-8 sm:gap-10 md:gap-12 mb-12">
           {/* Brand */}
           <div>
-            <div className="font-display text-3xl font-black text-white mb-2">
-              Aawaaj<span className="text-saffron">.</span>
+            <div className="flex items-center gap-3 mb-3">
+              <img src={logoSvg} alt="Aawaaj Movement" className="h-12 w-12 object-contain" />
+              <div className="font-display text-3xl font-black text-white">
+                Aawaaj<span className="text-saffron">.</span>
+              </div>
             </div>
             <p className="text-white/50 text-xs font-heading tracking-widest uppercase mb-4">Movement</p>
             <p className="text-white/65 font-body text-sm leading-relaxed mb-6">

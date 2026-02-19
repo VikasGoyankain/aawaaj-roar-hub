@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import logoSvg from "@/assets/logo aawaaj.svg";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
@@ -30,8 +31,9 @@ const Navbar = () => {
     >
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <a href="#" className="font-display text-2xl font-black text-white">
-          Aawaaj<span className="text-saffron">.</span>
+        <a href="#" className="flex items-center gap-2.5">
+          <img src={logoSvg} alt="Aawaaj Movement" className="h-9 w-9 object-contain" />
+          <span className="font-display text-xl font-black text-white">Aawaaj<span className="text-saffron">.</span></span>
         </a>
 
         {/* Desktop links */}

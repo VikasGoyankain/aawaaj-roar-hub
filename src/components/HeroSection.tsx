@@ -79,7 +79,7 @@ const HeroSection = () => {
         <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-up" style={{ animationDelay: '0.6s', opacity: 0 }}>
           <a
             href="/register"
-            className="inline-flex items-center justify-center gap-2 bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-base sm:text-lg px-7 sm:px-10 py-3 sm:py-4 rounded-sm transition-all duration-300 shadow-saffron hover:shadow-lg hover:-translate-y-1 animate-pulse-saffron tracking-wide"
+            className="inline-flex items-center justify-center gap-2 bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-base sm:text-lg px-7 sm:px-10 py-3 sm:py-4 rounded-sm transition-all duration-300 shadow-saffron hover:shadow-lg hover:-translate-y-1 tracking-wide"
           >
             Join the Movement
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,13 +102,7 @@ const HeroSection = () => {
         </div>
       </div>
 
-      {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/50 animate-bounce">
-        <span className="text-xs tracking-widest uppercase font-body">Scroll</span>
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
+
     </section>
   );
 };

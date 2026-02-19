@@ -54,19 +54,19 @@ const AawaajModel = () => {
           </div>
 
           {/* Online */}
-          <div className="relative bg-saffron rounded-sm overflow-hidden group hover:shadow-saffron transition-all duration-500">
-            <div className="absolute top-0 left-0 w-2 h-full bg-primary" />
+          <div className="relative bg-primary rounded-sm overflow-hidden group hover:shadow-green transition-all duration-500 border border-saffron/30">
+            <div className="absolute top-0 left-0 w-2 h-full bg-saffron" />
           <div className="p-6 sm:p-10 pl-8 sm:pl-12">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xl">
+                <div className="w-12 h-12 rounded-full bg-saffron/20 border border-saffron/30 flex items-center justify-center text-xl">
                   🛡️
                 </div>
                 <div>
-                  <div className="text-primary font-heading font-bold text-xs tracking-widest uppercase">Digital Operations</div>
+                  <div className="text-saffron font-heading font-bold text-xs tracking-widest uppercase">Digital Operations</div>
                   <h3 className="font-display text-2xl font-bold text-white">Digital Shield</h3>
                 </div>
               </div>
-              <p className="text-white/90 font-body mb-8 leading-relaxed">
+              <p className="text-white/75 font-body mb-8 leading-relaxed">
                 Turning verified ground reports into high-impact digital campaigns — tagging authorities,
                 amplifying voices, and forcing accountability through online pressure.
               </p>
@@ -78,8 +78,8 @@ const AawaajModel = () => {
                   "Public pressure & media outreach",
                   "Digital documentation & archiving",
                 ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-white font-body text-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white mt-2 flex-shrink-0" />
+                  <li key={item} className="flex items-start gap-3 text-white/80 font-body text-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-saffron mt-2 flex-shrink-0" />
                     {item}
                   </li>
                 ))}
