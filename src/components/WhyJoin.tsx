@@ -27,14 +27,14 @@ const benefits = [
 
 const WhyJoin = () => {
   return (
-    <section className="py-24 bg-primary-muted">
-      <div className="container mx-auto px-6">
+    <section className="py-16 sm:py-24 bg-primary-muted">
+      <div className="container mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-block text-saffron font-heading font-bold tracking-widest uppercase text-sm mb-4">
             Why It Matters
           </div>
-          <h2 className="font-display text-4xl md:text-5xl font-black text-primary leading-tight">
+          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-black text-primary leading-tight">
             Why Join Aawaaj?
           </h2>
           <div className="w-16 h-1 bg-saffron mx-auto mt-6" />
@@ -43,9 +43,9 @@ const WhyJoin = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 mb-16">
           {benefits.map((b) => (
-            <div key={b.title} className="bg-card border border-border rounded-sm p-8 hover:shadow-card hover:-translate-y-2 transition-all duration-400 group">
+            <div key={b.title} className="bg-card border border-border rounded-sm p-6 sm:p-8 hover:shadow-card hover:-translate-y-2 transition-all duration-400 group">
               <div className="text-5xl mb-5">{b.icon}</div>
               <div className="inline-block bg-saffron/10 text-saffron text-xs font-heading font-bold tracking-wider uppercase px-3 py-1 rounded-sm mb-4">
                 {b.highlight}
@@ -58,12 +58,12 @@ const WhyJoin = () => {
         </div>
 
         {/* Big CTA */}
-        <div className="bg-primary rounded-sm p-12 text-center relative overflow-hidden">
+        <div className="bg-primary rounded-sm p-8 sm:p-12 text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-saffron" />
           <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-saffron/5" />
           <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full bg-saffron/5" />
           <div className="relative z-10">
-            <h3 className="font-display text-3xl md:text-4xl font-black text-white mb-4">
+            <h3 className="font-display text-2xl sm:text-3xl md:text-4xl font-black text-white mb-4">
               Ready to <span className="text-saffron italic">Roar</span>?
             </h3>
             <p className="text-white/75 font-body text-lg mb-8 max-w-xl mx-auto">
@@ -73,7 +73,7 @@ const WhyJoin = () => {
               href="https://forms.google.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-lg px-12 py-4 rounded-sm transition-all duration-300 shadow-saffron hover:shadow-lg hover:-translate-y-1 tracking-wide"
+              className="inline-flex items-center justify-center gap-2 bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-base sm:text-lg px-8 sm:px-12 py-3 sm:py-4 rounded-sm transition-all duration-300 shadow-saffron hover:shadow-lg hover:-translate-y-1 tracking-wide"
             >
               Join the Movement
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

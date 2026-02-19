@@ -1,18 +1,18 @@
 const AboutSection = () => {
   return (
-    <section id="about" className="py-24 bg-primary text-primary-foreground relative overflow-hidden">
+    <section id="about" className="py-16 sm:py-24 bg-primary text-primary-foreground relative overflow-hidden">
       {/* Decorative */}
       <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-saffron/5 -translate-y-1/2 translate-x-1/2" />
       <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-saffron/5 translate-y-1/2 -translate-x-1/2" />
 
-      <div className="container mx-auto px-6 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           {/* Left */}
           <div>
             <div className="inline-block text-saffron font-heading font-bold tracking-widest uppercase text-sm mb-4">
               Our Identity
             </div>
-            <h2 className="font-display text-4xl md:text-5xl font-black text-white leading-tight mb-6">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight mb-6">
               Born of the Youth,<br />
               <span className="text-saffron italic">By the Youth,</span><br />
               For the Youth

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { CalendarIcon, Shield, ChevronRight, ChevronLeft, CheckCircle2, Volume2, Mic } from "lucide-react";
+import { CalendarIcon, Shield, ChevronRight, ChevronLeft, CheckCircle2, Volume2, Mic, Loader2, AlertCircle, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import FooterSection from "@/components/FooterSection";
+import {
+  ALL_STATES,
+  STATES_AND_DISTRICTS,
+  lookupPincode,
+  EMAIL_DOMAINS,
+  isValidIndianMobile,
+} from "@/lib/india-data";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 type Role = "volunteer" | "victim" | null;
@@ -39,23 +47,23 @@ function StepDots({ current, total }: { current: number; total: number }) {
       {Array.from({ length: total }).map((_, i) => (
         <div key={i} className="flex items-center gap-2">
           <div
-            className={cn(
-              "transition-all duration-500 rounded-full",
-              i < current
-                ? "w-6 h-6 bg-saffron flex items-center justify-center"
-                : i === current
-                ? "w-3 h-3 bg-saffron shadow-saffron"
-                : "w-2 h-2 bg-white/25"
-            )}
-          >
-            {i < current && (
-              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            )}
-          </div>
-          {i < total - 1 && (
-            <div className={cn("h-px w-8 transition-all duration-500", i < current ? "bg-saffron" : "bg-white/20")} />
+          className={cn(
+            "transition-all duration-500 rounded-full",
+            i < current
+              ? "w-6 h-6 bg-saffron flex items-center justify-center"
+              : i === current
+              ? "w-3 h-3 bg-saffron shadow-saffron"
+              : "w-2 h-2 bg-white/25"
+          )}
+        >
+          {i < current && (
+            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+        {i < total - 1 && (
+          <div className={cn("h-px w-4 sm:w-8 transition-all duration-500", i < current ? "bg-saffron" : "bg-white/20")} />
           )}
         </div>
       ))}
@@ -89,6 +97,257 @@ function SkillBadge({
   );
 }
 
+/* ─── Email Autocomplete Component ───────────────────────────── */
+function EmailInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSugg, setShowSugg] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setShowSugg(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleChange = (raw: string) => {
+    onChange(raw);
+    const atIdx = raw.indexOf("@");
+    if (atIdx >= 1) {
+      const domPart = raw.slice(atIdx + 1).toLowerCase();
+      const matches = EMAIL_DOMAINS.filter((d) => d.startsWith(domPart) && d !== domPart);
+      setSuggestions(matches.map((d) => raw.slice(0, atIdx + 1) + d));
+      setShowSugg(matches.length > 0);
+    } else {
+      setShowSugg(false);
+    }
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <Input
+        type="email"
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder="you@example.com"
+        autoComplete="off"
+        className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
+        onFocus={() => { if (suggestions.length) setShowSugg(true); }}
+      />
+      {showSugg && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border border-white/20 bg-[hsl(150_47%_12%)] shadow-xl overflow-hidden">
+          {suggestions.slice(0, 5).map((s) => (
+            <button
+              key={s}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-saffron/20 hover:text-white transition-colors font-body"
+              onMouseDown={(e) => { e.preventDefault(); onChange(s); setShowSugg(false); }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── WhatsApp Input Component ────────────────────────────────── */
+function WhatsAppInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [showError, setShowError] = useState(false);
+
+  const handleChange = (raw: string) => {
+    // Only allow digits, max 10
+    const digits = raw.replace(/\D/g, "").slice(0, 10);
+    onChange(digits);
+    setShowError(false);
+  };
+
+  const handleBlur = () => {
+    if (value.length > 0 && value.length < 10) {
+      setShowError(true);
+    } else if (value.length === 10 && !isValidIndianMobile(value)) {
+      setShowError(true);
+    } else {
+      setShowError(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex">
+        <div className="flex items-center h-11 px-3 rounded-l-md border border-r-0 border-white/20 bg-white/[0.12] text-white/70 text-sm font-heading select-none">
+          +91
+        </div>
+        <Input
+          type="tel"
+          value={value}
+          onChange={(e) => handleChange(e.target.value)}
+          onBlur={handleBlur}
+          placeholder="98765 43210"
+          maxLength={10}
+          className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11 rounded-l-none"
+        />
+      </div>
+      {showError && value.length > 0 && value.length < 10 && (
+        <p className="text-red-400 text-xs font-body flex items-center gap-1.5">
+          <AlertCircle className="w-3 h-3" /> Mobile number must be exactly 10 digits
+        </p>
+      )}
+      {showError && value.length === 10 && !isValidIndianMobile(value) && (
+        <p className="text-red-400 text-xs font-body flex items-center gap-1.5">
+          <AlertCircle className="w-3 h-3" /> Invalid Indian mobile number (must start with 6, 7, 8, or 9)
+        </p>
+      )}
+      {value.length === 10 && isValidIndianMobile(value) && (
+        <p className="text-green-400 text-xs font-body flex items-center gap-1.5">
+          <CheckCircle2 className="w-3 h-3" /> Valid mobile number
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Smart Location Fields ───────────────────────────────────── */
+function LocationFields({
+  pincode, setPincode,
+  selectedState, setSelectedState,
+  district, setDistrict,
+}: {
+  pincode: string; setPincode: (v: string) => void;
+  selectedState: string; setSelectedState: (v: string) => void;
+  district: string; setDistrict: (v: string) => void;
+}) {
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeError, setPincodeError] = useState("");
+  const [pincodePostOffice, setPincodePostOffice] = useState("");
+
+  const handlePincodeChange = useCallback(async (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 6);
+    setPincode(digits);
+    setPincodeError("");
+    setPincodePostOffice("");
+
+    if (digits.length === 6) {
+      setPincodeLoading(true);
+      const result = await lookupPincode(digits);
+      setPincodeLoading(false);
+      if (result) {
+        setSelectedState(result.state);
+        setDistrict(result.district);
+        setPincodePostOffice(result.postOffice);
+      } else {
+        setPincodeError("Invalid pincode — please check and retry");
+      }
+    }
+  }, [setPincode, setSelectedState, setDistrict]);
+
+  const handleStateChange = (s: string) => {
+    setSelectedState(s);
+    setDistrict("");
+    setPincode("");
+    setPincodePostOffice("");
+    setPincodeError("");
+  };
+
+  const handleDistrictChange = (d: string) => {
+    setDistrict(d);
+    setPincode("");
+    setPincodePostOffice("");
+    setPincodeError("");
+  };
+
+  const districts = selectedState ? (STATES_AND_DISTRICTS[selectedState] ?? []) : [];
+
+  return (
+    <div className="space-y-3">
+      {/* Pincode shortcut */}
+      <div>
+        <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">
+          Pincode
+          <span className="ml-2 text-white/35 font-body font-normal text-xs">(auto-fills state & district)</span>
+        </Label>
+        <div className="relative">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-saffron/60" />
+          <Input
+            value={pincode}
+            onChange={(e) => handlePincodeChange(e.target.value)}
+            placeholder="e.g. 380015"
+            maxLength={6}
+            className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11 pl-9"
+          />
+          {pincodeLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-saffron" />}
+        </div>
+        {pincodeError && <p className="text-red-400 text-xs font-body mt-1">{pincodeError}</p>}
+        {pincodePostOffice && <p className="text-green-400 text-xs font-body mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {pincodePostOffice}</p>}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-white/10" />
+        <span className="text-white/30 text-xs font-heading tracking-widest uppercase">or select manually</span>
+        <div className="flex-1 h-px bg-white/10" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {/* State */}
+        <div>
+          <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">State</Label>
+          <select
+            value={selectedState}
+            onChange={(e) => handleStateChange(e.target.value)}
+            className="w-full h-11 rounded-md border border-white/20 bg-white/[0.08] text-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-saffron focus:border-saffron/60 transition-all appearance-none"
+            style={{ backgroundColor: 'hsl(150 60% 8% / 0.4)' }}
+          >
+            <option value="" style={{ backgroundColor: 'hsl(150 47% 14%)' }}>Select state</option>
+            {ALL_STATES.map((s) => (
+              <option key={s} value={s} style={{ backgroundColor: 'hsl(150 47% 14%)' }}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* District */}
+        <div>
+          <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">District</Label>
+          <select
+            value={district}
+            onChange={(e) => handleDistrictChange(e.target.value)}
+            disabled={!selectedState}
+            className={cn(
+              "w-full h-11 rounded-md border border-white/20 bg-white/[0.08] text-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-saffron focus:border-saffron/60 transition-all appearance-none",
+              !selectedState && "opacity-50 cursor-not-allowed"
+            )}
+            style={{ backgroundColor: 'hsl(150 60% 8% / 0.4)' }}
+          >
+            <option value="" style={{ backgroundColor: 'hsl(150 47% 14%)' }}>{selectedState ? "Select district" : "Select state first"}</option>
+            {districts.map((d) => (
+              <option key={d} value={d} style={{ backgroundColor: 'hsl(150 47% 14%)' }}>{d}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Show pincode if manually selected */}
+      {selectedState && district && !pincode && (
+        <p className="text-white/40 text-xs font-body">Enter pincode above for exact locality match, or leave blank.</p>
+      )}
+    </div>
+  );
+}
+
 /* ─── Path choice card ───────────────────────────────────────── */
 function PathCard({
   icon,
@@ -104,11 +363,11 @@ function PathCard({
   onClick: () => void;
 }) {
   return (
-    <button
+      <button
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full text-left p-6 rounded-xl border-2 transition-all duration-300 group",
+        "w-full text-left p-4 sm:p-6 rounded-xl border-2 transition-all duration-300 group",
         selected
           ? "border-saffron bg-saffron/10 shadow-saffron"
           : "border-white/15 bg-white/5 hover:border-white/40 hover:bg-white/10"
@@ -138,8 +397,9 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [selectedState, setSelectedState] = useState("");
+  const [district, setDistrict] = useState("");
   const [role, setRole] = useState<Role>(null);
   const [region, setRegion] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
@@ -149,21 +409,15 @@ export default function Register() {
 
   // Validation helpers
   const stepValid = [
-    name.trim().length > 1 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && whatsapp.replace(/\D/g, "").length >= 10,
+    name.trim().length > 1 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && isValidIndianMobile(whatsapp),
     role !== null && (role === "victim" ? problemDesc.trim().length > 10 : region.trim().length > 0),
     dob !== undefined,
     true,
   ];
 
   function toggleSkill(s: string) {
-    setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== x) : [...prev, s]));
+    setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   }
-
-  // Address suggestions (simple static suggestions for now)
-  const INDIAN_STATES = [
-    "Gujarat", "Maharashtra", "Rajasthan", "Uttar Pradesh", "Madhya Pradesh",
-    "Karnataka", "Tamil Nadu", "Delhi", "West Bengal", "Punjab",
-  ];
 
   function handleSubmit() {
     setSubmitted(true);
@@ -208,12 +462,12 @@ export default function Register() {
       <div className="absolute top-0 left-0 right-0 h-1 bg-saffron" />
 
       {/* Navbar minimal */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-white/10 bg-primary/80 backdrop-blur-sm sticky top-0 z-40">
+      <header className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-white/10 bg-primary/80 backdrop-blur-sm sticky top-0 z-40">
         <a href="/" className="font-display text-2xl font-black text-white">
           Aawaaj<span className="text-saffron">.</span>
         </a>
         <StepDots current={step} total={4} />
-        <div className="flex items-center gap-1.5 text-white/50 text-xs font-body">
+        <div className="hidden sm:flex items-center gap-1.5 text-white/50 text-xs font-body">
           <Shield className="w-3.5 h-3.5 text-saffron" />
           100% Confidential
         </div>
@@ -221,11 +475,11 @@ export default function Register() {
 
       {/* Hero hook */}
       {step === 0 && (
-        <div className="text-center px-6 pt-14 pb-6">
+        <div className="text-center px-4 sm:px-6 pt-10 sm:pt-14 pb-6">
           <div className="inline-flex items-center gap-2 bg-saffron/15 border border-saffron/30 text-saffron px-4 py-1.5 rounded-full text-xs font-heading font-semibold tracking-widest uppercase mb-5">
             <Mic className="w-3.5 h-3.5" /> Aawaaj Movement
           </div>
-          <h1 className="font-display text-4xl md:text-6xl font-black text-white leading-tight mb-3">
+          <h1 className="font-display text-3xl sm:text-4xl md:text-6xl font-black text-white leading-tight mb-3">
             Turn Your Whisper Into a<br />
             <span className="text-saffron italic">Nationwide Roar.</span>
           </h1>
@@ -236,11 +490,11 @@ export default function Register() {
       )}
 
       {/* Form card */}
-      <main className="flex-1 flex items-start justify-center px-4 pb-16 pt-8">
+      <main className="flex-1 flex items-start justify-center px-3 sm:px-4 pb-12 sm:pb-16 pt-6 sm:pt-8">
         <div className="w-full max-w-xl">
           <div className="bg-white/5 border border-white/10 rounded-2xl backdrop-blur-sm overflow-hidden shadow-2xl">
             {/* Step label bar */}
-            <div className="px-8 pt-7 pb-5 border-b border-white/10">
+            <div className="px-4 sm:px-8 pt-5 sm:pt-7 pb-4 sm:pb-5 border-b border-white/10">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-white/40 text-xs font-heading tracking-widest uppercase">
                   Step {step + 1} of 4
@@ -258,7 +512,7 @@ export default function Register() {
               </div>
             </div>
 
-            <div className="px-8 py-8 space-y-6">
+            <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-6">
               {/* ── STEP 0: Identity ── */}
               {step === 0 && (
                 <div className="space-y-5">
@@ -274,60 +528,28 @@ export default function Register() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="e.g. Arjun Sharma"
-                        className="bg-white/8 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
+                        className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
                       />
                     </div>
 
                     <div>
                       <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">Email Address *</Label>
-                      <Input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        className="bg-white/8 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
-                      />
+                      <EmailInput value={email} onChange={setEmail} />
                     </div>
 
                     <div>
                       <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">
                         WhatsApp Number *
-                        <span className="ml-2 text-white/35 font-body font-normal text-xs">(for official Aawaaj group)</span>
                       </Label>
-                      <Input
-                        type="tel"
-                        value={whatsapp}
-                        onChange={(e) => setWhatsapp(e.target.value)}
-                        placeholder="+91 98765 43210"
-                        className="bg-white/8 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
-                      />
+                      <WhatsAppInput value={whatsapp} onChange={setWhatsapp} />
+                      <p className="text-white/40 text-xs font-body mt-1.5">We'll add you to the official Aawaaj coordination group</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">City</Label>
-                        <Input
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          placeholder="Ahmedabad"
-                          className="bg-white/8 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">State</Label>
-                        <select
-                          value={state}
-                          onChange={(e) => setState(e.target.value)}
-                          className="w-full h-11 rounded-md border border-white/20 bg-white/8 text-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-saffron focus:border-saffron/60 transition-all"
-                          style={{ backgroundColor: 'hsl(150 60% 8% / 0.4)' }}
-                        >
-                          <option value="" style={{ backgroundColor: 'hsl(150 47% 14%)' }}>Select state</option>
-                          {INDIAN_STATES.map((s) => (
-                            <option key={s} value={s} style={{ backgroundColor: 'hsl(150 47% 14%)' }}>{s}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    <LocationFields
+                      pincode={pincode} setPincode={setPincode}
+                      selectedState={selectedState} setSelectedState={setSelectedState}
+                      district={district} setDistrict={setDistrict}
+                    />
                   </div>
                 </div>
               )}
@@ -412,7 +634,7 @@ export default function Register() {
                         onChange={(e) => setProblemDesc(e.target.value)}
                         placeholder="Tell us what happened. Include any relevant dates, names of institutions, and what outcome you need. Your story will be verified before any action is taken."
                         rows={6}
-                        className="bg-white/8 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 resize-none text-sm leading-relaxed"
+                        className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 resize-none text-sm leading-relaxed"
                       />
                       <p className="text-white/35 text-xs font-body mt-2 flex items-center gap-1.5">
                         <Shield className="w-3.5 h-3.5 text-saffron shrink-0" />
@@ -441,7 +663,7 @@ export default function Register() {
                         value={recommendedBy}
                         onChange={(e) => setRecommendedBy(e.target.value)}
                         placeholder="e.g. Hardik Gajraj or leave blank"
-                        className="bg-white/8 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
+                        className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
                       />
                       <p className="text-saffron/70 text-xs font-body mt-1.5 flex items-center gap-1.5">
                         ★ Used for the Best Volunteers Award — referrals are tracked.
@@ -457,7 +679,7 @@ export default function Register() {
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal h-11 bg-white/8 border-white/20 hover:bg-white/12 text-white hover:text-white",
+                              "w-full justify-start text-left font-normal h-11 bg-white/[0.08] border-white/20 hover:bg-white/[0.12] text-white hover:text-white",
                               !dob && "text-white/30"
                             )}
                           >
@@ -510,8 +732,8 @@ export default function Register() {
                     {[
                       { label: "Name", value: name },
                       { label: "Email", value: email },
-                      { label: "WhatsApp", value: whatsapp },
-                      { label: "Location", value: [city, state].filter(Boolean).join(", ") || "—" },
+                      { label: "WhatsApp", value: whatsapp ? `+91 ${whatsapp}` : "—" },
+                      { label: "Location", value: [district, selectedState, pincode].filter(Boolean).join(", ") || "—" },
                       { label: "Path", value: role === "volunteer" ? "Volunteer / Regional Head" : role === "victim" ? "Seeking Help" : "—" },
                       ...(role === "volunteer" && region ? [{ label: "Region", value: region }] : []),
                       ...(role === "volunteer" && skills.length > 0 ? [{ label: "Skills", value: skills.join(", ") }] : []),
@@ -537,7 +759,7 @@ export default function Register() {
             </div>
 
             {/* Navigation footer */}
-            <div className="px-8 pb-8 flex items-center justify-between gap-4">
+            <div className="px-4 sm:px-8 pb-6 sm:pb-8 flex items-center justify-between gap-3">
               {step > 0 ? (
                 <button
                   type="button"
@@ -577,12 +799,15 @@ export default function Register() {
           </div>
 
           {/* Privacy notice */}
-          <div className="flex items-center justify-center gap-2 mt-5 text-white/35 text-xs font-body">
+          <div className="flex items-center justify-center gap-2 mt-4 sm:mt-5 text-white/35 text-xs font-body">
             <Shield className="w-3.5 h-3.5 text-saffron/60" />
             Your data is 100% confidential and never sold to third parties.
           </div>
         </div>
       </main>
+      
+      {/* Universal Footer */}
+      <FooterSection />
     </div>
   );
 }

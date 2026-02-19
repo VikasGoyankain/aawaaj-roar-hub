@@ -67,9 +67,9 @@ export default {
         },
       },
       fontFamily: {
-        display: ['Playfair Display', 'Georgia', 'serif'],
-        heading: ['Oswald', 'Arial Narrow', 'sans-serif'],
-        body: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['"Archivo Black"', 'Montserrat', 'Impact', 'sans-serif'],
+        heading: ['"Space Mono"', 'monospace'],
+        body: ['Inter', '"Public Sans"', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -101,6 +101,11 @@ export default {
           from: { opacity: "0", transform: "translateX(-40px)" },
           to: { opacity: "1", transform: "translateX(0)" },
         },
+        "slide-up-blur": {
+          "0%": { opacity: "0", transform: "translateY(50px)", filter: "blur(12px)" },
+          "60%": { filter: "blur(0px)" },
+          "100%": { opacity: "1", transform: "translateY(0)", filter: "blur(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -109,6 +114,7 @@ export default {
         "fade-in": "fade-in 1s ease-out forwards",
         "pulse-saffron": "pulse-saffron 2s ease-in-out infinite",
         "slide-in-left": "slide-in-left 0.8s ease-out forwards",
+        "slide-up-blur": "slide-up-blur 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards",
       },
     },
   },

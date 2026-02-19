@@ -1,4 +1,46 @@
+import { useState, useEffect, useRef } from "react";
 import heroImage from "@/assets/hero-activists.jpg";
+
+/* ── Count-up hook (triggers once on intersection) ── */
+function useCountUp(end: number, duration = 1800) {
+  const [value, setValue] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started.current) {
+          started.current = true;
+          const startTime = performance.now();
+          const tick = (now: number) => {
+            const progress = Math.min((now - startTime) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setValue(Math.round(eased * end));
+            if (progress < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, [end, duration]);
+  return { value, ref };
+}
+
+function StatCounter({ value, suffix, label }: { value: number; suffix: string; label: string }) {
+  const { value: count, ref } = useCountUp(value);
+  return (
+    <div ref={ref} className="text-center border-r border-white/20 last:border-0">
+      <div className="text-2xl sm:text-3xl font-display font-black text-saffron">
+        {count}{suffix}
+      </div>
+      <div className="text-white/70 text-xs sm:text-sm font-body tracking-widest uppercase mt-1">{label}</div>
+    </div>
+  );
+}
 
 const HeroSection = () => {
   return (
@@ -23,13 +65,13 @@ const HeroSection = () => {
         </div>
 
         {/* Main Headline */}
-        <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1.05] mb-6 animate-fade-up" style={{ animationDelay: '0.2s', opacity: 0 }}>
+        <h1 className="font-display text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1.05] mb-6 animate-slide-up-blur" style={{ animationDelay: '0.2s', opacity: 0 }}>
           Aawaaj Movement:<br />
           <span className="text-saffron italic">Roar of the Youth !!</span>
         </h1>
 
         {/* Sub-headline */}
-        <p className="text-white/85 text-lg md:text-2xl font-body font-light max-w-3xl mx-auto mb-12 leading-relaxed animate-fade-up" style={{ animationDelay: '0.4s', opacity: 0 }}>
+        <p className="text-white/85 text-base md:text-2xl font-body font-light max-w-3xl mx-auto mb-8 sm:mb-12 leading-relaxed animate-fade-up" style={{ animationDelay: '0.4s', opacity: 0 }}>
           Turning individual frustration into a coordinated roar that the system can no longer ignore.
         </p>
 
@@ -37,7 +79,7 @@ const HeroSection = () => {
         <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-up" style={{ animationDelay: '0.6s', opacity: 0 }}>
           <a
             href="/register"
-            className="inline-flex items-center justify-center gap-2 bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-lg px-10 py-4 rounded-sm transition-all duration-300 shadow-saffron hover:shadow-lg hover:-translate-y-1 animate-pulse-saffron tracking-wide"
+            className="inline-flex items-center justify-center gap-2 bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-base sm:text-lg px-7 sm:px-10 py-3 sm:py-4 rounded-sm transition-all duration-300 shadow-saffron hover:shadow-lg hover:-translate-y-1 animate-pulse-saffron tracking-wide"
           >
             Join the Movement
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,24 +88,17 @@ const HeroSection = () => {
           </a>
           <a
             href="#about"
-            className="inline-flex items-center justify-center gap-2 border-2 border-white/60 text-white hover:bg-white/10 font-heading font-semibold text-lg px-10 py-4 rounded-sm transition-all duration-300 tracking-wide"
+            className="inline-flex items-center justify-center gap-2 border-2 border-white/60 text-white hover:bg-white/10 font-heading font-semibold text-base sm:text-lg px-7 sm:px-10 py-3 sm:py-4 rounded-sm transition-all duration-300 tracking-wide"
           >
             Learn More
           </a>
         </div>
 
         {/* Stats bar */}
-        <div className="mt-20 grid grid-cols-3 gap-6 max-w-2xl mx-auto animate-fade-up" style={{ animationDelay: '0.8s', opacity: 0 }}>
-          {[
-            { value: "25+", label: "Districts" },
-            { value: "500+", label: "Youth Members" },
-            { value: "100+", label: "Cases Raised" },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center border-r border-white/20 last:border-0">
-              <div className="text-3xl font-display font-black text-saffron">{stat.value}</div>
-              <div className="text-white/70 text-sm font-body tracking-widest uppercase mt-1">{stat.label}</div>
-            </div>
-          ))}
+        <div className="mt-12 sm:mt-20 grid grid-cols-3 gap-2 sm:gap-6 max-w-2xl mx-auto animate-fade-up" style={{ animationDelay: '0.8s', opacity: 0 }}>
+          <StatCounter value={25} suffix="+" label="Districts" />
+          <StatCounter value={500} suffix="+" label="Youth Members" />
+          <StatCounter value={100} suffix="+" label="Cases Raised" />
         </div>
       </div>
 

@@ -39,34 +39,34 @@ const AreasOfFocus = () => {
   const [hovered, setHovered] = useState<number | null>(null);
 
   return (
-    <section className="py-24 gradient-dark-green">
-      <div className="container mx-auto px-6">
+    <section className="py-16 sm:py-24 gradient-dark-green">
+      <div className="container mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-block text-saffron font-heading font-bold tracking-widest uppercase text-sm mb-4">
             What We Fight For
           </div>
-          <h2 className="font-display text-4xl md:text-5xl font-black text-white leading-tight">
+          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight">
             Areas of Focus
           </h2>
           <div className="w-16 h-1 bg-saffron mx-auto mt-6" />
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {areas.map((area, i) => (
             <div
               key={area.title}
-              className={`group relative cursor-pointer rounded-sm border transition-all duration-400 overflow-hidden ${
+              className={`group relative cursor-pointer rounded-sm border transition-all duration-300 overflow-hidden ${
                 hovered === i
                   ? area.color === "saffron"
-                    ? "border-saffron bg-saffron shadow-saffron scale-105"
-                    : "border-primary-light bg-primary-light shadow-green scale-105"
+                    ? "border-saffron bg-saffron shadow-[0_20px_50px_rgba(0,0,0,0.4)] -translate-y-2 scale-[1.03]"
+                    : "border-primary-light bg-primary-light shadow-[0_20px_50px_rgba(0,0,0,0.4)] -translate-y-2 scale-[1.03]"
                   : "border-white/10 bg-white/5 hover:border-white/20"
               }`}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
             >
-              <div className="p-7">
+              <div className="p-5 sm:p-7">
                 <div className="text-4xl mb-5">{area.icon}</div>
                 <h3
                   className={`font-display text-xl font-bold mb-3 transition-colors duration-300 ${

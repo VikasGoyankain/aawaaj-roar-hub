@@ -1,26 +1,28 @@
 const AawaajModel = () => {
   return (
-    <section className="py-24 bg-background">
-      <div className="container mx-auto px-6">
+    <section className="py-16 sm:py-24 bg-background relative overflow-hidden">
+      {/* Moving digital network grid — subtle backdrop */}
+      <div className="digital-network-grid" />
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-block text-saffron font-heading font-bold tracking-widest uppercase text-sm mb-4">
             How We Operate
           </div>
-          <h2 className="font-display text-4xl md:text-5xl font-black text-primary leading-tight">
+          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-black text-primary leading-tight">
             The Aawaaj Model
           </h2>
           <div className="w-16 h-1 bg-saffron mx-auto mt-6" />
-          <p className="text-muted-foreground text-lg mt-6 max-w-2xl mx-auto font-body">
+          <p className="text-muted-foreground text-base sm:text-lg mt-6 max-w-2xl mx-auto font-body">
             A two-pronged approach — ground-level truth-finding combined with digital amplification for maximum accountability.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-2 gap-5 sm:gap-8">
           {/* Offline */}
           <div className="relative bg-primary rounded-sm overflow-hidden group hover:shadow-green transition-all duration-500">
             <div className="absolute top-0 left-0 w-2 h-full bg-saffron" />
-            <div className="p-10 pl-12">
+          <div className="p-6 sm:p-10 pl-8 sm:pl-12">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-full bg-saffron/20 border border-saffron/30 flex items-center justify-center text-xl">
                   🏕️
@@ -54,7 +56,7 @@ const AawaajModel = () => {
           {/* Online */}
           <div className="relative bg-saffron rounded-sm overflow-hidden group hover:shadow-saffron transition-all duration-500">
             <div className="absolute top-0 left-0 w-2 h-full bg-primary" />
-            <div className="p-10 pl-12">
+          <div className="p-6 sm:p-10 pl-8 sm:pl-12">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xl">
                   🛡️
