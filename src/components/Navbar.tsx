@@ -35,9 +35,7 @@ const Navbar = () => {
         {/* CTA */}
         <div className="hidden md:block">
           <a
-            href="https://forms.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/register"
             className="bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-sm px-6 py-2.5 rounded-sm tracking-wide transition-all duration-200"
           >
             Join Now
@@ -76,9 +74,7 @@ const Navbar = () => {
             </a>
           ))}
           <a
-            href="https://forms.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/register"
             className="block bg-saffron text-white font-heading font-bold text-sm px-6 py-3 rounded-sm tracking-wide text-center mt-4"
           >
             Join Now
