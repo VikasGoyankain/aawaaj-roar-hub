@@ -36,9 +36,7 @@ const HeroSection = () => {
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-up" style={{ animationDelay: '0.6s', opacity: 0 }}>
           <a
-            href="https://forms.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/register"
             className="inline-flex items-center justify-center gap-2 bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-lg px-10 py-4 rounded-sm transition-all duration-300 shadow-saffron hover:shadow-lg hover:-translate-y-1 animate-pulse-saffron tracking-wide"
           >
             Join the Movement
