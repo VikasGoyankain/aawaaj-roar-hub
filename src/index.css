@@ -2,95 +2,111 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Inter:wght@300;400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+
+/* ============================================
+   AAWAAJ MOVEMENT — DESIGN SYSTEM
+   Colors: Deep Forest Green, Saffron, White
+   ============================================ */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core Palette */
+    --background: 0 0% 98%;
+    --foreground: 150 30% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 150 30% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 150 30% 10%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Forest Green — primary brand */
+    --primary: 150 47% 18%;
+    --primary-foreground: 0 0% 98%;
+    --primary-light: 150 40% 28%;
+    --primary-muted: 150 30% 94%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Saffron — accent/energy */
+    --saffron: 33 100% 50%;
+    --saffron-light: 38 100% 60%;
+    --saffron-dark: 30 100% 40%;
+    --saffron-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Neutrals */
+    --secondary: 150 20% 94%;
+    --secondary-foreground: 150 40% 15%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --muted: 150 15% 95%;
+    --muted-foreground: 150 10% 45%;
+
+    --accent: 33 100% 50%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 150 20% 88%;
+    --input: 150 20% 88%;
+    --ring: 150 47% 18%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(150 60% 8% / 0.92) 0%, hsl(150 47% 18% / 0.75) 50%, hsl(33 100% 50% / 0.25) 100%);
+    --gradient-green: linear-gradient(135deg, hsl(150 47% 18%), hsl(150 40% 28%));
+    --gradient-saffron: linear-gradient(135deg, hsl(33 100% 50%), hsl(38 100% 60%));
+    --gradient-dark-green: linear-gradient(180deg, hsl(150 60% 8%), hsl(150 47% 14%));
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Shadows */
+    --shadow-green: 0 8px 32px hsl(150 47% 18% / 0.3);
+    --shadow-saffron: 0 8px 32px hsl(33 100% 50% / 0.3);
+    --shadow-card: 0 4px 20px hsl(150 20% 10% / 0.08);
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* Fonts */
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-heading: 'Oswald', 'Arial Narrow', sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
 
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* sidebar */
+    --sidebar-background: 150 47% 18%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 33 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 150 40% 25%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 150 30% 30%;
+    --sidebar-ring: 33 100% 50%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
+    --background: 150 47% 6%;
+    --foreground: 0 0% 96%;
+    --card: 150 40% 10%;
+    --card-foreground: 0 0% 96%;
+    --popover: 150 40% 10%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 33 100% 50%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 150 30% 15%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 150 25% 15%;
+    --muted-foreground: 150 10% 60%;
+    --accent: 33 100% 50%;
+    --accent-foreground: 0 0% 10%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 150 20% 20%;
+    --input: 150 20% 20%;
+    --ring: 33 100% 50%;
+    --sidebar-background: 150 47% 6%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 33 100% 50%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 150 30% 12%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 150 20% 15%;
+    --sidebar-ring: 33 100% 50%;
   }
 }
 
@@ -101,5 +117,56 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  .gradient-green {
+    background: var(--gradient-green);
+  }
+  .gradient-saffron {
+    background: var(--gradient-saffron);
+  }
+  .gradient-dark-green {
+    background: var(--gradient-dark-green);
+  }
+  .shadow-green {
+    box-shadow: var(--shadow-green);
+  }
+  .shadow-saffron {
+    box-shadow: var(--shadow-saffron);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .text-saffron {
+    color: hsl(var(--saffron));
+  }
+  .bg-saffron {
+    background-color: hsl(var(--saffron));
+  }
+  .bg-primary-muted {
+    background-color: hsl(var(--primary-muted));
+  }
+  .border-saffron {
+    border-color: hsl(var(--saffron));
   }
 }
