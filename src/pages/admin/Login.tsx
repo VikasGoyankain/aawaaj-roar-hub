@@ -19,6 +19,14 @@ export default function Login() {
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/admin';
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
+
   // Navigate to the target page once fully signed in + profile loaded
   useEffect(() => {
     if (!loading && !profileLoading && profile) {
@@ -26,8 +34,16 @@ export default function Login() {
     }
   }, [loading, profileLoading, profile, navigate, from]);
 
+  const onSubmit = async (data: LoginFormData) => {
+    setError(null);
+    const { error: signInError } = await signIn(data.email, data.password);
+    if (signInError) {
+      setError(signInError.message);
+    }
+  };
+
   // Show a loading screen after sign-in while profile is being fetched.
-  // Without this the user sees the login form again with no feedback.
+  // MUST be placed after all hooks (useForm, useEffect, etc.)
   if (session && (profileLoading || loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-primary">
@@ -38,25 +54,6 @@ export default function Login() {
       </div>
     );
   }
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  });
-
-  const onSubmit = async (data: LoginFormData) => {
-    setError(null);
-    const { error: signInError } = await signIn(data.email, data.password);
-    if (signInError) {
-      setError(signInError.message);
-    }
-    // On success: don't navigate here — the useEffect above watches for
-    // profile to be populated (after onAuthStateChange finishes fetching it)
-    // and navigates then. This avoids the race between navigate() and profile fetch.
-  };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-primary px-4">
