@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate, getInitials, INDIAN_REGIONS } from '@/lib/utils';
 import { ALL_ROLES } from '@/lib/validations';
@@ -50,7 +50,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { Search, UserPlus, MoreHorizontal, Shield, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, UserPlus, MoreHorizontal, Shield, Trash2, ChevronLeft, ChevronRight, Copy, Check, Link2 } from 'lucide-react';
 
 const roleBadgeColor: Record<string, string> = {
   President: 'bg-purple-100 text-purple-700',
@@ -81,6 +81,16 @@ export default function MembersPage() {
     dob: '', residence_district: '', current_region_or_college: '', roles: [] as RoleName[],
   });
   const [addLoading, setAddLoading] = useState(false);
+
+  // Magic link fallback dialog (shown when SMTP is unavailable)
+  const [magicLinkInfo, setMagicLinkInfo] = useState<{ name: string; email: string; link: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const copyMagicLink = () => {
+    if (!magicLinkInfo) return;
+    navigator.clipboard.writeText(magicLinkInfo.link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
 
   // Manage Power dialog
   const [powerMember, setPowerMember] = useState<ProfileWithRoles | null>(null);
@@ -161,60 +171,146 @@ export default function MembersPage() {
     });
   };
 
-  // ── Add Member (send magic link invitation → auto-creates profile via trigger) ──
+  // ── Add Member ──
+  // Uses inviteUserByEmail: creates the account and emails a login link automatically via SMTP.
   const handleAdd = async () => {
     if (!addForm.email || !addForm.full_name || addForm.roles.length === 0) {
       toast({ title: 'Missing fields', description: 'Name, email, and at least one role are required.', variant: 'destructive' });
       return;
     }
-    // Basic email check
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email)) {
       toast({ title: 'Invalid email format', variant: 'destructive' });
       return;
     }
+    if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+      toast({
+        title: 'Server not configured',
+        description: 'VITE_SUPABASE_SERVICE_ROLE_KEY is missing from environment variables.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setAddLoading(true);
     try {
-      // Send magic link — this creates the auth.users row if the user doesn't exist
-      // The on_auth_user_created trigger will auto-create the profile + Volunteer role
-      const siteUrl = import.meta.env.VITE_SITE_URL as string || 'https://aawaajmovement.org';
-      const { error: otpErr } = await supabase.auth.signInWithOtp({
-        email: addForm.email,
-        options: {
+      // ── Step 1: Try inviteUserByEmail (creates account + sends email via SMTP) ──
+      // If SMTP is misconfigured the invite call returns a 500. In that case we
+      // fall back to createUser + generateLink so the admin can copy/paste the link.
+      let newUserId: string;
+      let emailSent = false;
+
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        addForm.email,
+        {
+          redirectTo: `${import.meta.env.VITE_SITE_URL ?? 'https://aawaajmovement.org'}/admin`,
           data: {
             full_name: addForm.full_name,
-            mobile_no: addForm.mobile_no || undefined,
-            residence_district: addForm.residence_district || undefined,
-            current_region_or_college: addForm.current_region_or_college || undefined,
+            mobile_no: addForm.mobile_no || null,
+            residence_district: addForm.residence_district || null,
+            current_region_or_college: addForm.current_region_or_college || null,
+            gender: addForm.gender || null,
+            dob: addForm.dob || null,
           },
-          emailRedirectTo: `${siteUrl}/admin`,
-          shouldCreateUser: true,
-        },
-      });
-      if (otpErr) throw otpErr;
+        }
+      );
 
-      // The profile won't exist yet (created when user clicks the link).
-      // We'll log this as a pending invite. Roles will need to be assigned
-      // after the user confirms via "Manage Power".
-      await logAudit('invite_member', addForm.email, {
+      if (inviteError) {
+        const status = (inviteError as { status?: number }).status;
+        // 422 = email already registered — hard stop
+        if (status === 422) throw new Error(`${inviteError.message} (this email is already registered)`);
+        // 401 = bad service role key — hard stop
+        if (status === 401) throw new Error(`${inviteError.message} (service role key is invalid — check VITE_SUPABASE_SERVICE_ROLE_KEY)`);
+        // 500 = SMTP failure — fall back to createUser + magic link
+        console.warn('[handleAdd] invite email failed (SMTP?), falling back to createUser:', inviteError.message);
+
+        const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: addForm.email,
+          email_confirm: true,
+          user_metadata: {
+            full_name: addForm.full_name,
+            mobile_no: addForm.mobile_no || null,
+            residence_district: addForm.residence_district || null,
+            current_region_or_college: addForm.current_region_or_college || null,
+            gender: addForm.gender || null,
+            dob: addForm.dob || null,
+          },
+        });
+        if (createError) throw new Error(`${createError.message} (Supabase internal error — check dashboard logs)`);
+        newUserId = createData.user.id;
+        emailSent = false;
+      } else {
+        newUserId = inviteData.user.id;
+        emailSent = true;
+      }
+
+      // ── Step 2: Wait for on_auth_user_created trigger ──
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      // ── Step 3: Upsert full profile metadata ──
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: newUserId,
+        full_name: addForm.full_name,
+        mobile_no: addForm.mobile_no || null,
+        gender: addForm.gender || null,
+        dob: addForm.dob || null,
+        residence_district: addForm.residence_district || null,
+        current_region_or_college: addForm.current_region_or_college || null,
+      }, { onConflict: 'id' });
+      if (profileError) console.warn('[handleAdd] profile upsert warning:', profileError);
+
+      // ── Step 4: Assign roles ──
+      for (const rName of addForm.roles) {
+        const roleRow = dbRoles.find((r) => r.name === rName);
+        if (roleRow) {
+          const { error: roleError } = await supabase.from('user_roles').upsert(
+            { user_id: newUserId, role_id: roleRow.id, granted_by: user?.id },
+            { onConflict: 'user_id,role_id', ignoreDuplicates: true }
+          );
+          if (roleError) console.warn('[handleAdd] role upsert warning:', roleError);
+        }
+      }
+
+      // ── Step 5: Audit log ──
+      await logAudit('add_member', newUserId, {
         email: addForm.email,
         full_name: addForm.full_name,
-        requested_roles: addForm.roles,
-        mobile_no: addForm.mobile_no,
-        gender: addForm.gender,
-        dob: addForm.dob,
-        residence_district: addForm.residence_district,
-        current_region_or_college: addForm.current_region_or_college,
+        roles_assigned: addForm.roles,
+        email_sent: emailSent,
       });
 
-      toast({
-        title: 'Invitation sent!',
-        description: `A magic link has been sent to ${addForm.email}. Once they click it and their account is created, you can assign roles via "Manage Power".`,
-      });
+      const capturedName = addForm.full_name;
+      const capturedEmail = addForm.email;
       setAddOpen(false);
       setAddForm({ email: '', full_name: '', mobile_no: '', gender: '', dob: '', residence_district: '', current_region_or_college: '', roles: [] });
       fetchMembers();
+
+      if (emailSent) {
+        toast({
+          title: 'Invitation sent ✨',
+          description: `An email has been sent to ${capturedEmail} with a link to set their password.`,
+        });
+      } else {
+        // SMTP unavailable — generate magic link for admin to share manually
+        // Use 'recovery' (password-reset) type so the link lands on a
+        // "Set your password" screen instead of silently logging in.
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: capturedEmail,
+          options: { redirectTo: `${import.meta.env.VITE_SITE_URL ?? 'https://aawaajmovement.org'}/admin` },
+        });
+        if (linkData?.properties?.action_link) {
+          setMagicLinkInfo({ name: capturedName, email: capturedEmail, link: linkData.properties.action_link });
+        } else {
+          toast({ title: 'Member added', description: `Account created for ${capturedEmail}. Ask them to use "Forgot Password" to set their password.` });
+        }
+      }
     } catch (err: unknown) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to invite', variant: 'destructive' });
+      console.error('[handleAdd] caught error:', err);
+      toast({
+        title: 'Error adding member',
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'destructive',
+      });
     } finally { setAddLoading(false); }
   };
 
@@ -271,13 +367,27 @@ export default function MembersPage() {
     if (!deleteMember) return;
     setDeleteLoading(true);
     try {
-      await supabase.from('profiles').delete().eq('id', deleteMember.id);
-      await logAudit('delete_member', deleteMember.id, { email: deleteMember.email, name: deleteMember.full_name });
-      toast({ title: 'Deleted', description: `${deleteMember.full_name} removed.` });
+      const uid = deleteMember.id;
+
+      // 1. Audit log FIRST (while the user still exists so FK references are valid)
+      await logAudit('delete_member', uid, { email: deleteMember.email, name: deleteMember.full_name });
+
+      // 2. Manually remove dependent rows — some Supabase projects don't have
+      //    true ON DELETE CASCADE wired up at the DB level, which causes GoTrue
+      //    to return 500 "unexpected_failure" when it tries to cascade internally.
+      await supabase.from('user_roles').delete().eq('user_id', uid);
+      await supabaseAdmin.from('profiles').delete().eq('id', uid);
+
+      // 3. Now delete from auth.users (no more dependents → no cascade failure)
+      const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(uid);
+      if (authDeleteError) throw authDeleteError;
+
+      toast({ title: 'Member removed', description: `${deleteMember.full_name} has been permanently removed.` });
       setDeleteMember(null);
       fetchMembers();
     } catch (err: unknown) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' });
+      console.error('[handleDelete]', err);
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to remove member', variant: 'destructive' });
     } finally { setDeleteLoading(false); }
   };
 
@@ -299,7 +409,7 @@ export default function MembersPage() {
           <h2 className="text-2xl font-bold text-[#002D04]">Members Directory</h2>
           <p className="text-sm text-gray-500">{totalCount} total members</p>
         </div>
-        {hasRole('President') && (
+        {hasRole(['President', 'Technical Head']) && (
           <Button onClick={() => setAddOpen(true)} className="bg-[#F4C430] text-[#002D04] hover:bg-[#dab22a]">
             <UserPlus className="mr-2 h-4 w-4" /> Add Member
           </Button>
@@ -332,7 +442,7 @@ export default function MembersPage() {
               <TableHead>Roles</TableHead>
               <TableHead className="hidden md:table-cell">District / College</TableHead>
               <TableHead className="hidden md:table-cell">Joined</TableHead>
-              {hasRole('President') && <TableHead className="w-10" />}
+              {hasRole(['President', 'Technical Head']) && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -364,7 +474,7 @@ export default function MembersPage() {
                     {m.residence_district || m.current_region_or_college || '—'}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-gray-500">{formatDate(m.joined_on)}</TableCell>
-                  {hasRole('President') && (
+                  {hasRole(['President', 'Technical Head']) && (
                     <TableCell>
                       {m.id !== me?.id && (
                         <DropdownMenu>
@@ -406,7 +516,7 @@ export default function MembersPage() {
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add New Member</DialogTitle>
-            <DialogDescription>Send a magic-link invitation. The user will set their own password on first login.</DialogDescription>
+            <DialogDescription>Fill in the member's details and assign their roles. An invitation email will be sent automatically with a link to set their password.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -467,17 +577,47 @@ export default function MembersPage() {
                 ))}
               </div>
             </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="text-xs text-amber-700">
-                <strong>How it works:</strong> A magic link will be emailed to the user. When they click it, their account is auto-created with the Volunteer role. You can then assign additional roles via "Manage Power" in the members list.
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <p className="text-xs text-blue-700">
+                <strong>How it works:</strong> An invitation email is sent to the member with a link to set their password and access the admin panel directly.
               </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={handleAdd} disabled={addLoading || !addForm.email || !addForm.full_name || addForm.roles.length === 0} className="bg-[#002D04] hover:bg-[#004d0a]">
-              {addLoading ? 'Sending...' : 'Send Invitation'}
+              {addLoading ? 'Sending...' : 'Add & Send Invite Email'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Magic Link Fallback Dialog ── */}
+      <Dialog open={!!magicLinkInfo} onOpenChange={(o) => { if (!o) { setMagicLinkInfo(null); setCopied(false); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-[#002D04]" /> Share Login Link
+            </DialogTitle>
+            <DialogDescription>
+              Email delivery is unavailable (SMTP not configured). Copy the link below and share it with <strong>{magicLinkInfo?.name}</strong> via WhatsApp, Telegram, or any channel. When they open it they will be prompted to <strong>set a new password</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-gray-50 p-3">
+              <p className="break-all font-mono text-xs text-gray-600 select-all">{magicLinkInfo?.link}</p>
+            </div>
+            <Button onClick={copyMagicLink} className="w-full gap-2 bg-[#002D04] hover:bg-[#004d0a]">
+              {copied
+                ? <><Check className="h-4 w-4" /> Copied!</>
+                : <><Copy className="h-4 w-4" /> Copy Link</>}
+            </Button>
+            <p className="text-center text-xs text-amber-600">
+              ⚠️ Fix this permanently: Supabase Dashboard → Project Settings → Auth → SMTP Settings — verify your host, port, username and password.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMagicLinkInfo(null); setCopied(false); }}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

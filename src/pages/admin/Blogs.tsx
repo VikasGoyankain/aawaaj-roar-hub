@@ -211,7 +211,7 @@ export default function BlogsPage() {
                   {b.published ? 'Unpublish' : 'Publish'}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => openEdit(b)}><Edit className="mr-1 h-3 w-3" />Edit</Button>
-                {hasRole(['President', 'Content Head']) && (
+                {hasRole(['President', 'Technical Head', 'Content Head']) && (
                   <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleteBlog(b)}>
                     <Trash2 className="mr-1 h-3 w-3" />Delete
                   </Button>

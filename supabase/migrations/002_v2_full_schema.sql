@@ -130,7 +130,7 @@ CREATE TABLE submissions (
 -- ============================================================
 CREATE TABLE audit_logs (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  admin_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE SET NULL,
+  admin_id    UUID REFERENCES profiles(id) ON DELETE SET NULL,
   action      TEXT NOT NULL,
   target_type TEXT,
   target_id   TEXT,

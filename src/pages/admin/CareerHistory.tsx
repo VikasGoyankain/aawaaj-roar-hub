@@ -149,7 +149,7 @@ export default function CareerHistoryPage() {
               <TableHead>Start</TableHead>
               <TableHead>End</TableHead>
               <TableHead className="hidden md:table-cell">Achievements</TableHead>
-              {hasRole('President') && <TableHead className="w-10" />}
+              {hasRole(['President', 'Technical Head']) && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -176,7 +176,7 @@ export default function CareerHistoryPage() {
                   <TableCell className="hidden max-w-xs truncate md:table-cell text-sm text-gray-500">
                     {r.key_achievements || '—'}
                   </TableCell>
-                  {hasRole('President') && (
+                  {hasRole(['President', 'Technical Head']) && (
                     <TableCell>
                       <Button
                         variant="ghost"

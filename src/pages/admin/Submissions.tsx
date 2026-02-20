@@ -71,7 +71,7 @@ export default function SubmissionsPage() {
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-    if (hasRole(['Regional Head', 'University President']) && !hasRole(['President'])) {
+    if (hasRole(['Regional Head', 'University President']) && !hasRole(['President', 'Technical Head'])) {
       query = query.eq('region', currentUser?.residence_district ?? '');
     }
     if (statusFilter !== 'all') {
@@ -234,7 +234,7 @@ export default function SubmissionsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {hasRole(['President', 'Regional Head']) ? (
+                    {hasRole(['President', 'Technical Head', 'Regional Head']) ? (
                       <Select
                         value={sub.status}
                         onValueChange={(v) => handleStatusChange(sub, v as SubmissionStatus)}

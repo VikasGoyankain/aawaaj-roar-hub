@@ -110,12 +110,12 @@ export default function AuditLogsPage() {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  if (!hasRole(['President'])) {
+  if (!hasRole(['President', 'Technical Head'])) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <ShieldAlert className="mb-4 h-12 w-12 text-gray-300" />
         <p className="text-lg font-medium text-gray-500">Access Restricted</p>
-        <p className="text-sm text-gray-400">Only the President can view audit logs.</p>
+        <p className="text-sm text-gray-400">Only the President or Technical Head can view audit logs.</p>
       </div>
     );
   }

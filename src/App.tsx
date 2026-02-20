@@ -56,7 +56,7 @@ const App = () => (
               <Route
                 path="settings"
                 element={
-                  <ProtectedRoute allowedRoles={["President"]}>
+                  <ProtectedRoute allowedRoles={["President", "Technical Head"]}>
                     <SettingsPage />
                   </ProtectedRoute>
                 }
@@ -64,7 +64,7 @@ const App = () => (
               <Route
                 path="audit-logs"
                 element={
-                  <ProtectedRoute allowedRoles={["President"]}>
+                  <ProtectedRoute allowedRoles={["President", "Technical Head"]}>
                     <AuditLogsPage />
                   </ProtectedRoute>
                 }
