@@ -21,6 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const INIT_SAFETY_TIMEOUT = 12_000; // 12 seconds — force loading=false if init hangs
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -29,43 +30,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [roles, setRoles] = useState<RoleName[]>([]);
   const [loading, setLoading] = useState(true);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initDoneRef = useRef(false);
 
   const fetchProfileAndRoles = useCallback(async (userId: string) => {
-    // Fetch profile
-    const { data: p, error: pErr } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    if (pErr) {
-      console.error('Error fetching profile:', pErr);
+    try {
+      // Fetch profile
+      const { data: p, error: pErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (pErr) {
+        console.error('[Auth] Error fetching profile:', pErr);
+        return { profile: null, roles: [] as RoleName[] };
+      }
+      // Fetch roles via bridge + roles table
+      const { data: ur } = await supabase
+        .from('user_roles')
+        .select('role_id, roles(name)')
+        .eq('user_id', userId);
+
+      const roleNames: RoleName[] = (ur || []).map(
+        (r: { role_id: number; roles: { name: string } | { name: string }[] | null }) => {
+          const rolesData = r.roles;
+          if (!rolesData) return 'Volunteer' as RoleName;
+          const name = Array.isArray(rolesData) ? rolesData[0]?.name : rolesData.name;
+          return (name || 'Volunteer') as RoleName;
+        }
+      );
+
+      return { profile: p as Profile, roles: roleNames };
+    } catch (err) {
+      console.error('[Auth] fetchProfileAndRoles threw:', err);
       return { profile: null, roles: [] as RoleName[] };
     }
-    // Fetch roles via bridge + roles table
-    const { data: ur } = await supabase
-      .from('user_roles')
-      .select('role_id, roles(name)')
-      .eq('user_id', userId);
-
-    const roleNames: RoleName[] = (ur || []).map(
-      (r: { role_id: number; roles: { name: string } | { name: string }[] | null }) => {
-        const rolesData = r.roles;
-        if (!rolesData) return 'Volunteer' as RoleName;
-        const name = Array.isArray(rolesData) ? rolesData[0]?.name : rolesData.name;
-        return (name || 'Volunteer') as RoleName;
-      }
-    );
-
-    return { profile: p as Profile, roles: roleNames };
   }, []);
 
-  const handleSignOut = useCallback(async () => {
-    await supabase.auth.signOut();
+  const clearAuth = useCallback(() => {
     setUser(null);
     setSession(null);
     setProfile(null);
     setRoles([]);
   }, []);
+
+  const handleSignOut = useCallback(async () => {
+    try { await supabase.auth.signOut(); } catch { /* ignore */ }
+    clearAuth();
+  }, [clearAuth]);
 
   // Inactivity auto-logout
   const resetInactivityTimer = useCallback(() => {
@@ -86,55 +97,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session, resetInactivityTimer]);
 
-  // Initialize auth state
+  // ── Single source of truth: onAuthStateChange ──
+  // Handles INITIAL_SESSION (replaces getSession), SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT.
   useEffect(() => {
     let mounted = true;
 
-    const init = async () => {
-      const { data: { session: s } } = await supabase.auth.getSession();
-      if (!mounted) return;
-      if (s?.user) {
-        setUser(s.user);
-        setSession(s);
-        const { profile: p, roles: r } = await fetchProfileAndRoles(s.user.id);
-        if (mounted) { setProfile(p); setRoles(r); }
-      } else {
-        // No valid session — clear everything
-        setUser(null);
-        setSession(null);
-        setProfile(null);
-        setRoles([]);
+    // Safety timeout: if init never completes, stop the loading spinner
+    // so the user can at least see the login page instead of an infinite spinner.
+    const safetyTimer = setTimeout(() => {
+      if (mounted && !initDoneRef.current) {
+        console.warn('[Auth] Safety timeout reached — forcing loading=false');
+        initDoneRef.current = true;
+        setLoading(false);
       }
-      if (mounted) setLoading(false);
-    };
-    init();
+    }, INIT_SAFETY_TIMEOUT);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, ns) => {
-      if (!mounted) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        if (!mounted) return;
+        console.log('[Auth] event:', event, 'session:', !!newSession);
 
-      if (event === 'SIGNED_OUT' || !ns) {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setRoles([]);
-        return;
+        // ── No session (signed out, or expired with no refresh) ──
+        if (!newSession) {
+          clearAuth();
+          if (!initDoneRef.current) { initDoneRef.current = true; setLoading(false); }
+          return;
+        }
+
+        // ── Session exists — update user/session immediately ──
+        setUser(newSession.user);
+        setSession(newSession);
+
+        // ── Fetch profile for initial load, sign-in, and token refresh ──
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          const { profile: p, roles: r } = await fetchProfileAndRoles(newSession.user.id);
+          if (!mounted) return;
+
+          if (p) {
+            setProfile(p);
+            setRoles(r);
+          } else if (event === 'INITIAL_SESSION') {
+            // Profile fetch failed on initial load — the session is likely stale.
+            // Clear everything so the user hits the login page instead of seeing
+            // an infinite spinner or a broken half-authed state.
+            console.warn('[Auth] Profile fetch failed on init — clearing stale session');
+            clearAuth();
+            try { await supabase.auth.signOut(); } catch { /* ignore */ }
+          }
+          // For TOKEN_REFRESHED/SIGNED_IN: keep existing profile if fetch failed
+          // (transient network blip), don't blow away the session.
+        }
+
+        // Mark init done after the first event is fully processed
+        if (!initDoneRef.current) {
+          initDoneRef.current = true;
+          if (mounted) setLoading(false);
+        }
       }
-
-      // SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED — all update the session
-      setSession(ns);
-      setUser(ns.user);
-
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        const { profile: p, roles: r } = await fetchProfileAndRoles(ns.user.id);
-        if (mounted) { setProfile(p); setRoles(r); }
-      }
-    });
+    );
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfileAndRoles]);
+  }, [fetchProfileAndRoles, clearAuth]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
