@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import type { Profile, RoleName } from '@/lib/types';
 
@@ -87,32 +88,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
+    let mounted = true;
+
     const init = async () => {
       const { data: { session: s } } = await supabase.auth.getSession();
+      if (!mounted) return;
       if (s?.user) {
         setUser(s.user);
         setSession(s);
         const { profile: p, roles: r } = await fetchProfileAndRoles(s.user.id);
-        setProfile(p);
-        setRoles(r);
+        if (mounted) { setProfile(p); setRoles(r); }
+      } else {
+        // No valid session — clear everything
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        setRoles([]);
       }
-      setLoading(false);
+      if (mounted) setLoading(false);
     };
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, ns) => {
-      setSession(ns);
-      setUser(ns?.user ?? null);
-      if (event === 'SIGNED_IN' && ns?.user) {
-        const { profile: p, roles: r } = await fetchProfileAndRoles(ns.user.id);
-        setProfile(p);
-        setRoles(r);
-      } else if (event === 'SIGNED_OUT') {
+      if (!mounted) return;
+
+      if (event === 'SIGNED_OUT' || !ns) {
+        setSession(null);
+        setUser(null);
         setProfile(null);
         setRoles([]);
+        return;
+      }
+
+      // SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED — all update the session
+      setSession(ns);
+      setUser(ns.user);
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const { profile: p, roles: r } = await fetchProfileAndRoles(ns.user.id);
+        if (mounted) { setProfile(p); setRoles(r); }
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchProfileAndRoles]);
 
   const signIn = async (email: string, password: string) => {
@@ -158,4 +179,20 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
+}
+
+/**
+ * Hook: redirect to /login if session expires while on an /admin page.
+ * Put this inside components rendered within <BrowserRouter>.
+ */
+export function useSessionGuard() {
+  const { session, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!loading && !session && location.pathname.startsWith('/admin')) {
+      navigate('/login', { state: { from: location }, replace: true });
+    }
+  }, [session, loading, location, navigate]);
 }

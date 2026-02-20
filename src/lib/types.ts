@@ -8,7 +8,7 @@ export type RoleName =
   | 'Volunteer';
 
 export type SubmissionType = 'victim_report' | 'volunteer_application';
-export type SubmissionStatus = 'New' | 'In-Progress' | 'Resolved';
+export type SubmissionStatus = 'New' | 'In-Progress' | 'Resolved' | 'Accepted';
 
 // ── DB row interfaces ──
 
@@ -28,6 +28,11 @@ export interface Profile {
   current_region_or_college: string | null;
   profile_photo_url: string | null;
   referred_by: string | null;
+  skills: string | null;
+  about_self: string | null;
+  recommended_by_name: string | null;
+  state: string | null;
+  pincode: string | null;
   joined_on: string;
   created_at: string;
   updated_at: string;
@@ -73,15 +78,29 @@ export interface Submission {
   full_name: string;
   email: string;
   phone: string | null;
+  pincode: string | null;
+  state: string | null;
+  district: string | null;
   region: string | null;
+  serve_role: string | null;
+  volunteer_scope: string | null;
+  serve_area_state: string | null;
+  serve_area_district: string | null;
+  serve_area_pincode: string | null;
+  college: string | null;
+  university: string | null;
+  skills: string | null;
+  about_self: string | null;
+  motivation: string | null;
   incident_date: string | null;
   incident_description: string | null;
   perpetrator_info: string | null;
   urgency_level: 'low' | 'medium' | 'high' | 'critical' | null;
-  university: string | null;
-  skills: string | null;
-  motivation: string | null;
   availability: string | null;
+  recommended_by: string | null;
+  dob: string | null;
+  consent: boolean;
+  converted_to_member: boolean | null;
   created_at: string;
   updated_at: string;
   // Extended fields from the new registration form

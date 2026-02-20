@@ -242,6 +242,112 @@ function CollegeSearch({
   );
 }
 
+/* ─── Member Search Dropdown ─────────────────────────────────── */
+function MemberSearchDropdown({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [allMembers, setAllMembers] = useState<string[]>([]);
+  const [filtered, setFiltered] = useState<string[]>([]);
+  const [showDrop, setShowDrop] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
+        setShowDrop(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    async function loadMembers() {
+      setLoadingMembers(true);
+      const { data } = await supabase.rpc("get_member_names");
+      if (data) setAllMembers((data as { full_name: string }[]).map((r) => r.full_name).filter(Boolean));
+      setLoadingMembers(false);
+    }
+    loadMembers();
+  }, []);
+
+  // Re-filter whenever the member list loads
+  useEffect(() => {
+    if (allMembers.length > 0) {
+      setFiltered(query.trim() ? allMembers.filter((n) => n.toLowerCase().includes(query.toLowerCase())).slice(0, 15) : allMembers.slice(0, 10));
+    }
+  }, [allMembers]);
+
+  const filterList = (raw: string) =>
+    raw.trim().length === 0
+      ? allMembers.slice(0, 10)
+      : allMembers
+          .filter((n) => n.toLowerCase().includes(raw.toLowerCase()))
+          .slice(0, 15);
+
+  const handleChange = (raw: string) => {
+    setQuery(raw);
+    onChange(raw);
+    const list = filterList(raw);
+    setFiltered(list);
+    setShowDrop(true);
+  };
+
+  const handleFocus = () => {
+    const list = filterList(query);
+    setFiltered(list);
+    setShowDrop(list.length > 0 || allMembers.length > 0);
+  };
+
+  const pick = (name: string) => {
+    setQuery(name);
+    onChange(name);
+    setShowDrop(false);
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="relative">
+        <Input
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={handleFocus}
+          placeholder="Type to search existing members…"
+          className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
+        />
+        {loadingMembers && (
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-saffron" />
+        )}
+      </div>
+      {showDrop && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border border-white/20 bg-[hsl(150_47%_12%)] shadow-xl overflow-hidden max-h-52 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <p className="px-3 py-2.5 text-sm text-white/40 font-body">
+              {allMembers.length === 0 ? "No existing members found" : "No match found"}
+            </p>
+          ) : (
+            filtered.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); pick(name); }}
+                className="w-full text-left px-3 py-2.5 text-sm text-white/90 hover:bg-saffron/20 hover:text-white transition-colors font-body border-b border-white/5 last:border-0"
+              >
+                {name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Serve Sub-role Option Card ──────────────────────────────── */
 function ServeRoleOption({
   selected,
@@ -1137,11 +1243,9 @@ export default function Register() {
                         Recommended by
                         <span className="ml-2 text-white/35 font-body font-normal text-xs">(name of existing Aawaaj member)</span>
                       </Label>
-                      <Input
+                      <MemberSearchDropdown
                         value={recommendedBy}
-                        onChange={(e) => setRecommendedBy(e.target.value)}
-                        placeholder="e.g. Hardik Gajraj or leave blank"
-                        className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
+                        onChange={setRecommendedBy}
                       />
                       <p className="text-saffron/70 text-xs font-body mt-1.5 flex items-center gap-1.5">
                         ★ Used for the Best Volunteers Award — referrals are tracked.

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
+import { useAuth, useSessionGuard } from '@/contexts/AuthContext';
 import { cn, getInitials } from '@/lib/utils';
 import type { RoleName } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   LayoutDashboard,
   Users,
@@ -56,6 +56,7 @@ const allLinks: SideLink[] = [
 
 export default function AdminLayout() {
   const { profile, roles, signOut } = useAuth();
+  useSessionGuard();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -133,13 +134,13 @@ export default function AdminLayout() {
 
         {/* Sidebar Footer */}
         <div className="border-t border-white/10 p-3">
-          <a
-            href="/"
+          <Link
+            to="/"
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Home className="h-5 w-5" />
             Back to Site
-          </a>
+          </Link>
         </div>
       </aside>
 
@@ -164,6 +165,7 @@ export default function AdminLayout() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
+                  {profile?.profile_photo_url && <AvatarImage src={profile.profile_photo_url} alt={profile.full_name} />}
                   <AvatarFallback className="bg-[#002D04] text-xs text-[#F4C430]">
                     {profile ? getInitials(profile.full_name) : '?'}
                   </AvatarFallback>

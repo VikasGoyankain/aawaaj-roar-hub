@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateTime } from '@/lib/utils';
 import type { Submission, SubmissionStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -25,18 +27,20 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Eye, ChevronLeft, ChevronRight, UserPlus, CheckCircle, Pencil, Link2, Copy, Check } from 'lucide-react';
 
-const STATUSES: SubmissionStatus[] = ['New', 'In-Progress', 'Resolved'];
+const STATUSES: SubmissionStatus[] = ['New', 'In-Progress', 'Resolved', 'Accepted'];
 
 const statusColor: Record<SubmissionStatus, string> = {
   New: 'bg-blue-100 text-blue-700',
   'In-Progress': 'bg-yellow-100 text-yellow-700',
   Resolved: 'bg-green-100 text-green-700',
+  Accepted: 'bg-emerald-100 text-emerald-700',
 };
 
 const urgencyColor: Record<string, string> = {
@@ -62,6 +66,241 @@ export default function SubmissionsPage() {
   // Detail dialog
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  // Make-Member dialog
+  const [makeMemberOpen, setMakeMemberOpen] = useState(false);
+  const [makeMemberSubmitting, setMakeMemberSubmitting] = useState(false);
+  const [memberForm, setMemberForm] = useState({
+    full_name: '', email: '', phone: '', dob: '',
+    district: '', state: '', pincode: '',
+    serve_role: '', college: '', skills: '', about_self: '', recommended_by: '',
+  });
+
+  // Magic link fallback dialog (shown when SMTP is unavailable)
+  const [magicLinkInfo, setMagicLinkInfo] = useState<{ name: string; email: string; link: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const copyMagicLink = () => {
+    if (!magicLinkInfo) return;
+    navigator.clipboard.writeText(magicLinkInfo.link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const serveRoleLabel: Record<string, string> = {
+    regional_head: 'Regional Head',
+    campus_coordinator: 'Campus Coordinator',
+    volunteer_sub: 'Volunteer',
+  };
+
+  const serveRoleToRoleName: Record<string, string> = {
+    regional_head: 'Regional Head',
+    campus_coordinator: 'University President',
+    volunteer_sub: 'Volunteer',
+  };
+
+  const openMakeMember = () => {
+    if (!selectedSubmission) return;
+    setMemberForm({
+      full_name: selectedSubmission.full_name || '',
+      email: selectedSubmission.email || '',
+      phone: selectedSubmission.phone || '',
+      dob: selectedSubmission.dob || '',
+      district: selectedSubmission.district || '',
+      state: selectedSubmission.state || '',
+      pincode: selectedSubmission.pincode || '',
+      serve_role: selectedSubmission.serve_role || '',
+      college: selectedSubmission.college || '',
+      skills: selectedSubmission.skills || '',
+      about_self: selectedSubmission.about_self || '',
+      recommended_by: selectedSubmission.recommended_by || '',
+    });
+    setMakeMemberOpen(true);
+  };
+
+  const handleMakeMember = async () => {
+    if (!selectedSubmission) return;
+
+    if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+      toast({
+        title: 'Server not configured',
+        description: 'VITE_SUPABASE_SERVICE_ROLE_KEY is missing from environment variables.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setMakeMemberSubmitting(true);
+    try {
+      // ── Step 1: Save edits back to the submission row ──
+      const { error } = await supabase
+        .from('submissions')
+        .update({
+          status: 'Accepted',
+          converted_to_member: true,
+          full_name: memberForm.full_name.trim(),
+          email: memberForm.email.trim(),
+          phone: memberForm.phone.trim() || null,
+          dob: memberForm.dob || null,
+          district: memberForm.district.trim() || null,
+          state: memberForm.state.trim() || null,
+          pincode: memberForm.pincode.trim() || null,
+          serve_role: memberForm.serve_role || null,
+          college: memberForm.college.trim() || null,
+          skills: memberForm.skills.trim() || null,
+          about_self: memberForm.about_self.trim() || null,
+          recommended_by: memberForm.recommended_by.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedSubmission.id);
+      if (error) throw error;
+
+      // ── Step 2: Create the Supabase auth account via invite ──
+      const roleName = serveRoleToRoleName[memberForm.serve_role] || 'Volunteer';
+      let newUserId: string;
+      let emailSent = false;
+
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        memberForm.email.trim(),
+        {
+          redirectTo: `${import.meta.env.VITE_SITE_URL ?? 'https://aawaajmovement.org'}/admin`,
+          data: {
+            full_name: memberForm.full_name.trim(),
+            mobile_no: memberForm.phone.trim() || null,
+            gender: null,
+            dob: memberForm.dob || null,
+            residence_district: memberForm.district.trim() || null,
+            current_region_or_college: memberForm.college.trim() || null,
+            state: memberForm.state.trim() || null,
+            pincode: memberForm.pincode.trim() || null,
+          },
+        }
+      );
+
+      if (inviteError) {
+        const status = (inviteError as { status?: number }).status;
+        if (status === 422) throw new Error(`${inviteError.message} (this email is already registered)`);
+        if (status === 401) throw new Error(`${inviteError.message} (service role key is invalid)`);
+        // SMTP failure — fall back to createUser + magic link
+        console.warn('[handleMakeMember] invite failed (SMTP?), falling back to createUser:', inviteError.message);
+
+        const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: memberForm.email.trim(),
+          email_confirm: true,
+          user_metadata: {
+            full_name: memberForm.full_name.trim(),
+            mobile_no: memberForm.phone.trim() || null,
+            dob: memberForm.dob || null,
+            residence_district: memberForm.district.trim() || null,
+            current_region_or_college: memberForm.college.trim() || null,
+            state: memberForm.state.trim() || null,
+            pincode: memberForm.pincode.trim() || null,
+          },
+        });
+        if (createError) throw new Error(`${createError.message} (Supabase error — check dashboard logs)`);
+        newUserId = createData.user.id;
+        emailSent = false;
+      } else {
+        newUserId = inviteData.user.id;
+        emailSent = true;
+      }
+
+      // ── Step 3: Wait for on_auth_user_created trigger to fire ──
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      // ── Step 4: Upsert profile with enriched data ──
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: newUserId,
+        full_name: memberForm.full_name.trim(),
+        mobile_no: memberForm.phone.trim() || null,
+        dob: memberForm.dob || null,
+        residence_district: memberForm.district.trim() || null,
+        state: memberForm.state.trim() || null,
+        pincode: memberForm.pincode.trim() || null,
+        current_region_or_college: memberForm.college.trim() || null,
+        skills: memberForm.skills.trim() || null,
+        about_self: memberForm.about_self.trim() || null,
+        recommended_by_name: memberForm.recommended_by.trim() || null,
+      }, { onConflict: 'id' });
+      if (profileError) console.warn('[handleMakeMember] profile upsert warning:', profileError);
+
+      // ── Step 5: Assign the mapped role ──
+      const { data: roleRows } = await supabase.from('roles').select('id, name');
+      const roleRow = roleRows?.find((r: { id: number; name: string }) => r.name === roleName);
+      if (roleRow) {
+        await supabase.from('user_roles').upsert(
+          { user_id: newUserId, role_id: roleRow.id, granted_by: currentUser?.id },
+          { onConflict: 'user_id,role_id', ignoreDuplicates: true }
+        );
+      }
+
+      // ── Step 6: Audit log ──
+      await supabase.from('audit_logs').insert({
+        admin_id: currentUser?.id,
+        action: 'make_member',
+        target_type: 'submission',
+        target_id: selectedSubmission.id,
+        details: {
+          submission_name: memberForm.full_name,
+          email: memberForm.email,
+          serve_role: memberForm.serve_role,
+          role_assigned: roleName,
+          new_user_id: newUserId,
+          email_sent: emailSent,
+        },
+      });
+
+      // ── Step 7: Update local state ──
+      const updated: Submission = {
+        ...selectedSubmission,
+        ...memberForm,
+        phone: memberForm.phone || null,
+        dob: memberForm.dob || null,
+        district: memberForm.district || null,
+        state: memberForm.state || null,
+        pincode: memberForm.pincode || null,
+        serve_role: memberForm.serve_role || null,
+        college: memberForm.college || null,
+        skills: memberForm.skills || null,
+        about_self: memberForm.about_self || null,
+        recommended_by: memberForm.recommended_by || null,
+        status: 'Accepted',
+        converted_to_member: true,
+      };
+      setSubmissions((prev) => prev.map((s) => (s.id === selectedSubmission.id ? updated : s)));
+      setSelectedSubmission(updated);
+      setMakeMemberOpen(false);
+
+      const capturedName = memberForm.full_name;
+      const capturedEmail = memberForm.email;
+
+      if (emailSent) {
+        toast({
+          title: '✅ Member created & invite sent!',
+          description: `An invite email has been sent to ${capturedEmail}. They can click the link to set their password.`,
+        });
+      } else {
+        // SMTP unavailable — generate magic link for admin to share manually
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: capturedEmail,
+          options: { redirectTo: `${import.meta.env.VITE_SITE_URL ?? 'https://aawaajmovement.org'}/admin` },
+        });
+        if (linkData?.properties?.action_link) {
+          setMagicLinkInfo({ name: capturedName, email: capturedEmail, link: linkData.properties.action_link });
+        } else {
+          toast({
+            title: 'Member created',
+            description: `Account created for ${capturedEmail}. Ask them to use "Forgot Password" to set their password.`,
+          });
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to make member';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setMakeMemberSubmitting(false);
+    }
+  };
 
   const fetchSubmissions = useCallback(async () => {
     setLoading(true);
@@ -451,8 +690,181 @@ export default function SubmissionsPage() {
                   <p className="text-sm">{selectedSubmission.consent ? '✅ Consented' : '❌ Not consented'}</p>
                 </div>
               )}
+
+              {/* Make Member CTA */}
+              {selectedSubmission.type === 'volunteer_application' &&
+                !selectedSubmission.converted_to_member && (
+                <div className="border-t pt-4 mt-2">
+                  <Button
+                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={openMakeMember}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Make Member
+                  </Button>
+                  <p className="mt-2 text-center text-xs text-gray-400">
+                    Accepts this application and prepares their member profile.
+                  </p>
+                </div>
+              )}
+
+              {selectedSubmission.converted_to_member && (
+                <div className="border-t pt-4 mt-2 flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                  <CheckCircle className="h-4 w-4" />
+                  Converted to member — awaiting signup with {selectedSubmission.email}
+                </div>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Make Member Confirmation Dialog ── */}
+      <Dialog open={makeMemberOpen} onOpenChange={(o) => !makeMemberSubmitting && setMakeMemberOpen(o)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-emerald-600" />
+              Accept as Member
+            </DialogTitle>
+            <DialogDescription>
+              Review and edit the pre-filled details before confirming. All edits are saved.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            {/* Identity */}
+            <fieldset className="rounded-lg border p-3 space-y-3">
+              <legend className="px-2 text-xs font-semibold text-gray-500 flex items-center gap-1"><Pencil className="h-3 w-3" /> Identity</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Full Name *</Label>
+                  <Input value={memberForm.full_name} onChange={(e) => setMemberForm({...memberForm, full_name: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Email *</Label>
+                  <Input value={memberForm.email} onChange={(e) => setMemberForm({...memberForm, email: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Phone</Label>
+                  <Input value={memberForm.phone} onChange={(e) => setMemberForm({...memberForm, phone: e.target.value})} placeholder="+91..." />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Date of Birth</Label>
+                  <Input type="date" value={memberForm.dob} onChange={(e) => setMemberForm({...memberForm, dob: e.target.value})} />
+                </div>
+              </div>
+            </fieldset>
+
+            {/* Location */}
+            <fieldset className="rounded-lg border p-3 space-y-3">
+              <legend className="px-2 text-xs font-semibold text-gray-500 flex items-center gap-1"><Pencil className="h-3 w-3" /> Location</legend>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Pincode</Label>
+                  <Input value={memberForm.pincode} onChange={(e) => setMemberForm({...memberForm, pincode: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">District</Label>
+                  <Input value={memberForm.district} onChange={(e) => setMemberForm({...memberForm, district: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">State</Label>
+                  <Input value={memberForm.state} onChange={(e) => setMemberForm({...memberForm, state: e.target.value})} />
+                </div>
+              </div>
+            </fieldset>
+
+            {/* Role & Skills */}
+            <fieldset className="rounded-lg border p-3 space-y-3">
+              <legend className="px-2 text-xs font-semibold text-gray-500 flex items-center gap-1"><Pencil className="h-3 w-3" /> Role & Skills</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Serve Role</Label>
+                  <Select value={memberForm.serve_role} onValueChange={(v) => setMemberForm({...memberForm, serve_role: v})}>
+                    <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="regional_head">Regional Head</SelectItem>
+                      <SelectItem value="campus_coordinator">Campus Coordinator</SelectItem>
+                      <SelectItem value="volunteer_sub">Volunteer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">College / University</Label>
+                  <Input value={memberForm.college} onChange={(e) => setMemberForm({...memberForm, college: e.target.value})} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">Skills</Label>
+                <Input value={memberForm.skills} onChange={(e) => setMemberForm({...memberForm, skills: e.target.value})} placeholder="Comma-separated skills" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">About Themselves</Label>
+                <Textarea value={memberForm.about_self} onChange={(e) => setMemberForm({...memberForm, about_self: e.target.value})} rows={2} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">Recommended By</Label>
+                <Input value={memberForm.recommended_by} onChange={(e) => setMemberForm({...memberForm, recommended_by: e.target.value})} />
+              </div>
+            </fieldset>
+
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+              <strong>What happens:</strong> A Supabase account will be created for <strong>{memberForm.email}</strong> and they will receive an email invite to set their password. Their profile, skills, and role ({serveRoleToRoleName[memberForm.serve_role] || 'Volunteer'}) will be assigned automatically.
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setMakeMemberOpen(false)}
+                disabled={makeMemberSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={handleMakeMember}
+                disabled={makeMemberSubmitting || !memberForm.full_name.trim() || !memberForm.email.trim()}
+              >
+                {makeMemberSubmitting ? (
+                  <span className="flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Creating account…</span>
+                ) : (
+                  <><UserPlus className="h-4 w-4" /> Confirm — Make Member</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Magic Link Fallback Dialog (when SMTP is unavailable) ── */}
+      <Dialog open={!!magicLinkInfo} onOpenChange={(o) => { if (!o) { setMagicLinkInfo(null); setCopied(false); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-[#002D04]" /> Share Login Link
+            </DialogTitle>
+            <DialogDescription>
+              Email delivery is unavailable (SMTP not configured). Copy the link below and share it with <strong>{magicLinkInfo?.name}</strong> via WhatsApp, Telegram, or any channel. When they open it they will be prompted to <strong>set a new password</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-gray-50 p-3">
+              <p className="break-all font-mono text-xs text-gray-600 select-all">{magicLinkInfo?.link}</p>
+            </div>
+            <Button onClick={copyMagicLink} className="w-full gap-2 bg-[#002D04] hover:bg-[#004d0a]">
+              {copied
+                ? <><Check className="h-4 w-4" /> Copied!</>
+                : <><Copy className="h-4 w-4" /> Copy Link</>}
+            </Button>
+            <p className="text-center text-xs text-amber-600">
+              ⚠️ Fix this permanently: Supabase Dashboard → Project Settings → Auth → SMTP Settings
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMagicLinkInfo(null); setCopied(false); }}>Done</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

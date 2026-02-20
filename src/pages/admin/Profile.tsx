@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { uploadToImageKit } from '@/lib/imagekit';
 import { useAuth } from '@/contexts/AuthContext';
-import { INDIAN_REGIONS, getInitials, formatDate } from '@/lib/utils';
+import { getInitials, formatDate } from '@/lib/utils';
+import { ALL_STATES, STATES_AND_DISTRICTS, lookupPincode, SKILLS_LIST } from '@/lib/india-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -25,7 +27,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, MapPin, Calendar, Shield, Camera, Lock, Save } from 'lucide-react';
+import {
+  User, Mail, Phone, MapPin, Calendar, Shield, Camera, Lock, Save,
+  Loader2, X, ChevronDown, Sparkles,
+} from 'lucide-react';
 
 const roleBadgeColor: Record<string, string> = {
   President: 'bg-purple-100 text-purple-700',
@@ -35,6 +40,94 @@ const roleBadgeColor: Record<string, string> = {
   'University President': 'bg-cyan-100 text-cyan-700',
   Volunteer: 'bg-gray-100 text-gray-700',
 };
+
+/* ── Reusable multi-select for skills ── */
+function SkillsPicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState('');
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = SKILLS_LIST.filter((s) => s.toLowerCase().includes(filter.toLowerCase()));
+  const toggle = (skill: string) => {
+    onChange(selected.includes(skill) ? selected.filter((x) => x !== skill) : [...selected, skill]);
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex min-h-[40px] w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent/50"
+      >
+        <span className="flex flex-wrap gap-1">
+          {selected.length === 0 && <span className="text-muted-foreground">Select skills…</span>}
+          {selected.slice(0, 5).map((s) => (
+            <Badge key={s} variant="secondary" className="text-xs gap-1">
+              {s}
+              <X
+                className="h-3 w-3 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); toggle(s); }}
+              />
+            </Badge>
+          ))}
+          {selected.length > 5 && (
+            <Badge variant="secondary" className="text-xs">+{selected.length - 5}</Badge>
+          )}
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg">
+          <div className="p-2">
+            <Input
+              placeholder="Filter skills…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="h-8 text-xs"
+              autoFocus
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto p-1">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground">No match</p>
+            ) : (
+              filtered.map((skill) => {
+                const active = selected.includes(skill);
+                return (
+                  <button
+                    key={skill}
+                    type="button"
+                    onClick={() => toggle(skill)}
+                    className={`w-full text-left rounded px-3 py-1.5 text-xs transition-colors ${
+                      active ? 'bg-emerald-50 text-emerald-700 font-medium' : 'hover:bg-accent'
+                    }`}
+                  >
+                    {active ? '✓ ' : ''}{skill}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { profile, roles, user, refreshProfile } = useAuth();
@@ -48,8 +141,14 @@ export default function ProfilePage() {
     residence_district: '',
     current_region_or_college: '',
     profile_photo_url: '',
+    skills: [] as string[],
+    about_self: '',
+    pincode: '',
+    state: '',
+    district: '',
   });
   const [saving, setSaving] = useState(false);
+  const [pincodeLoading, setPincodeLoading] = useState(false);
 
   // Password change
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -69,9 +168,35 @@ export default function ProfilePage() {
         residence_district: profile.residence_district || '',
         current_region_or_college: profile.current_region_or_college || '',
         profile_photo_url: profile.profile_photo_url || '',
+        skills: profile.skills ? profile.skills.split(', ').filter(Boolean) : [],
+        about_self: profile.about_self || '',
+        pincode: profile.pincode || '',
+        state: profile.state || '',
+        district: profile.residence_district || '',
       });
     }
   }, [profile]);
+
+  // Pincode auto-lookup
+  const handlePincodeChange = async (val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 6);
+    setForm((prev) => ({ ...prev, pincode: digits }));
+    if (digits.length === 6) {
+      setPincodeLoading(true);
+      const result = await lookupPincode(digits);
+      if (result) {
+        setForm((prev) => ({
+          ...prev,
+          state: result.state,
+          district: result.district,
+          residence_district: result.district,
+        }));
+      }
+      setPincodeLoading(false);
+    }
+  };
+
+  const districts = form.state ? (STATES_AND_DISTRICTS[form.state] ?? []) : [];
 
   const handleSave = async () => {
     if (!form.full_name.trim()) {
@@ -87,9 +212,13 @@ export default function ProfilePage() {
           mobile_no: form.mobile_no || null,
           gender: form.gender || null,
           dob: form.dob || null,
-          residence_district: form.residence_district || null,
+          residence_district: form.district || form.residence_district || null,
+          state: form.state || null,
+          pincode: form.pincode || null,
           current_region_or_college: form.current_region_or_college || null,
           profile_photo_url: form.profile_photo_url || null,
+          skills: form.skills.length > 0 ? form.skills.join(', ') : null,
+          about_self: form.about_self.trim() || null,
         })
         .eq('id', user!.id);
 
@@ -280,28 +409,98 @@ export default function ProfilePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-gray-400" /> Residence State/UT
-              </Label>
-              <Select value={form.residence_district} onValueChange={(v) => setForm({ ...form, residence_district: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select state/UT" />
-                </SelectTrigger>
-                <SelectContent>
-                  {INDIAN_REGIONS.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>College / Region</Label>
+              <Input
+                value={form.current_region_or_college}
+                onChange={(e) => setForm({ ...form, current_region_or_college: e.target.value })}
+                placeholder="e.g., Delhi University, North Campus"
+              />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>College / Region</Label>
-            <Input
-              value={form.current_region_or_college}
-              onChange={(e) => setForm({ ...form, current_region_or_college: e.target.value })}
-              placeholder="e.g., Delhi University, North Campus"
-            />
+
+          <Separator />
+
+          {/* ── Location (Pincode → auto-fill state & district) ── */}
+          <div>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#002D04]">
+              <MapPin className="h-4 w-4" /> Location
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label className="text-xs">Pincode</Label>
+                <div className="relative">
+                  <Input
+                    value={form.pincode}
+                    onChange={(e) => handlePincodeChange(e.target.value)}
+                    placeholder="e.g. 110001"
+                    maxLength={6}
+                  />
+                  {pincodeLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-400">Enter pincode to auto-fill state & district</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">State</Label>
+                <Select
+                  value={form.state}
+                  onValueChange={(v) => setForm((prev) => ({ ...prev, state: v, district: '' }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALL_STATES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">District</Label>
+                <Select
+                  value={form.district}
+                  onValueChange={(v) => setForm((prev) => ({ ...prev, district: v, residence_district: v }))}
+                  disabled={districts.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={districts.length === 0 ? 'Select state first' : 'Select district'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {districts.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* ── Skills & Bio ── */}
+          <div>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#002D04]">
+              <Sparkles className="h-4 w-4" /> Skills & Bio
+            </h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs">Skills</Label>
+                <SkillsPicker selected={form.skills} onChange={(v) => setForm({ ...form, skills: v })} />
+                <p className="text-[11px] text-gray-400">Select the skills that best represent you</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">About Me / Bio</Label>
+                <Textarea
+                  value={form.about_self}
+                  onChange={(e) => setForm({ ...form, about_self: e.target.value })}
+                  placeholder="Tell us a bit about yourself, your interests, and what you bring to the movement."
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+            </div>
           </div>
 
           <Separator />
