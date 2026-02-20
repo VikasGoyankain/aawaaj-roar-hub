@@ -35,22 +35,53 @@ export default function ResetPassword() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // supabase-js automatically parses the #access_token hash and fires the event.
+    let cancelled = false;
+
+    // Strategy 1: Listen for the PASSWORD_RECOVERY auth event.
+    // supabase-js fires this after processing the #access_token hash.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (cancelled) return;
       if (event === 'PASSWORD_RECOVERY') {
         setStage('ready');
       }
     });
 
-    // Fallback: if the page was opened without a valid recovery token in the hash
-    // (e.g., direct navigation) transition to 'invalid' after a short grace period
-    // so the user isn't stuck on a blank spinner indefinitely.
+    // Strategy 2: The PASSWORD_RECOVERY event may have already fired before
+    // this component mounted (race condition). Poll getSession() as backup.
+    // If we find a valid session while on this page, show the form.
+    const checkExistingSession = async () => {
+      // Give supabase-js a moment to finish processing the URL hash
+      await new Promise((r) => setTimeout(r, 800));
+      if (cancelled) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // We're on /reset-password with a valid session → recovery was processed
+        setStage((s) => (s === 'waiting' ? 'ready' : s));
+      }
+    };
+    checkExistingSession();
+
+    // Strategy 3: Retry once more after a longer delay in case the network
+    // token exchange is slow (e.g., high-latency connection).
+    const retryTimer = setTimeout(async () => {
+      if (cancelled) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setStage((s) => (s === 'waiting' ? 'ready' : s));
+      }
+    }, 3000);
+
+    // Final fallback: if nothing worked after 8 seconds, the link is genuinely
+    // invalid/expired.
     const fallback = setTimeout(() => {
-      setStage((s) => (s === 'waiting' ? 'invalid' : s));
-    }, 4000);
+      if (!cancelled) setStage((s) => (s === 'waiting' ? 'invalid' : s));
+    }, 8000);
 
     return () => {
+      cancelled = true;
       subscription.unsubscribe();
+      clearTimeout(retryTimer);
       clearTimeout(fallback);
     };
   }, []);

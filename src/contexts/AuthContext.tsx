@@ -167,6 +167,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(newSession.user);
         setSession(newSession);
 
+        // Mark auth init as done RIGHT NOW — we have a definitive answer
+        // about whether the user is authenticated.  Profile fetch is tracked
+        // separately by `profileLoading` so ProtectedRoute can show the
+        // correct spinner instead of the page hanging.
+        if (!initDoneRef.current) {
+          initDoneRef.current = true;
+          if (mounted) setLoading(false);
+        }
+
         // ── Fetch profile on initial load and sign-in (with retries) ──
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
           setProfileLoading(true);
@@ -177,17 +186,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfile(p);
             setRoles(r);
           } else {
-            // Profile not found even after retries — keep session alive.
-            // The user is authenticated; ProtectedRoute will handle the
-            // missing-profile case gracefully instead of an infinite spinner.
             console.warn('[Auth] Profile not found after retries — keeping session alive');
           }
           setProfileLoading(false);
         }
 
-        // ── Token refresh — only re-fetch profile if we don't have one.
-        //    If we already have a profile, skip the network call entirely.
-        //    This prevents transient failures from blowing away valid state. ──
+        // ── Token refresh — only re-fetch profile if we don't have one ──
         if (event === 'TOKEN_REFRESHED') {
           if (!profileRef.current) {
             setProfileLoading(true);
@@ -196,13 +200,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (p) { setProfile(p); setRoles(r); }
             setProfileLoading(false);
           }
-          // If we already have a profile, do nothing — keep existing data.
-        }
-
-        // Mark init done after the first event is fully processed
-        if (!initDoneRef.current) {
-          initDoneRef.current = true;
-          if (mounted) setLoading(false);
         }
       }
     );
