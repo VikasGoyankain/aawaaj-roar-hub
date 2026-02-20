@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/admin/ProtectedRoute";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Index from "./pages/Index";
 import Register from "./pages/Register";
+import OurTeam from "./pages/OurTeam";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/admin/Login";
 import ForgotPassword from "./pages/admin/ForgotPassword";
@@ -34,6 +35,7 @@ const App = () => (
             {/* Public routes */}
             <Route path="/" element={<Index />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/our-team" element={<OurTeam />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
 

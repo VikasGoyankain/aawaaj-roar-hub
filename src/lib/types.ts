@@ -31,6 +31,9 @@ export interface Profile {
   joined_on: string;
   created_at: string;
   updated_at: string;
+  // Convenience fields sometimes returned by joins / legacy queries
+  role?: RoleName;
+  region?: string | null;
 }
 
 export interface UserRole {
@@ -81,6 +84,20 @@ export interface Submission {
   availability: string | null;
   created_at: string;
   updated_at: string;
+  // Extended fields from the new registration form
+  dob?: string | null;
+  district?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  recommended_by?: string | null;
+  serve_role?: string | null;
+  volunteer_scope?: string | null;
+  serve_area_district?: string | null;
+  serve_area_state?: string | null;
+  serve_area_pincode?: string | null;
+  college?: string | null;
+  about_self?: string | null;
+  consent?: boolean | null;
 }
 
 export interface AuditLog {
