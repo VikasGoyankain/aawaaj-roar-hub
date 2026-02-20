@@ -187,6 +187,12 @@
   .bg-primary-muted {
     background-color: hsl(var(--primary-muted));
   }
+  .bg-primary\/8 {
+    background-color: hsl(var(--primary) / 0.08);
+  }
+  .hover\:bg-white\/8:hover {
+    background-color: hsl(0 0% 100% / 0.08);
+  }
   .border-saffron {
     border-color: hsl(var(--saffron));
   }

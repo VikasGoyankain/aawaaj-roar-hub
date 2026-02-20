@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/utils';
 import type { Submission, AuditLog, Profile } from '@/lib/types';
@@ -12,6 +11,8 @@ import {
   CheckCircle,
   Clock,
   TrendingUp,
+  Activity,
+  BarChart3,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -23,6 +24,13 @@ interface DashboardStats {
   victimReports: number;
   volunteerApplications: number;
 }
+
+const statusStyles: Record<string, string> = {
+  New: 'bg-blue-100 text-blue-700 border-blue-200',
+  'In-Progress': 'bg-amber-100 text-amber-700 border-amber-200',
+  Resolved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  Accepted: 'bg-teal-100 text-teal-700 border-teal-200',
+};
 
 export default function Dashboard() {
   const { profile, hasRole } = useAuth();
@@ -42,18 +50,15 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch user count
         const { count: userCount } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
 
-        // Fetch submissions
         let submissionQuery = supabase.from('submissions').select('*');
         if (hasRole(['Regional Head', 'University President']) && !hasRole(['President'])) {
           submissionQuery = submissionQuery.eq('region', profile?.residence_district ?? '');
         }
         const { data: submissions } = await submissionQuery;
-
         const allSubmissions = submissions || [];
 
         setStats({
@@ -66,7 +71,6 @@ export default function Dashboard() {
           volunteerApplications: allSubmissions.filter((s) => s.type === 'volunteer_application').length,
         });
 
-        // Recent submissions
         let recentQuery = supabase
           .from('submissions')
           .select('*')
@@ -78,7 +82,6 @@ export default function Dashboard() {
         const { data: recent } = await recentQuery;
         setRecentSubmissions((recent as Submission[]) || []);
 
-        // Recent audit logs (President only)
         if (hasRole(['President'])) {
           const { data: logs } = await supabase
             .from('audit_logs')
@@ -114,152 +117,204 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#002D04] border-t-transparent" />
+      <div className="flex items-center justify-center py-32">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'New':
-        return 'bg-blue-100 text-blue-700';
-      case 'In-Progress':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'Resolved':
-        return 'bg-green-100 text-green-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
+  const resolutionRate = stats.totalSubmissions > 0
+    ? Math.round((stats.resolvedSubmissions / stats.totalSubmissions) * 100)
+    : 0;
+
+  const statCards = [
+    {
+      label: 'Total Members',
+      value: stats.totalUsers,
+      icon: Users,
+      sub: 'Active social engineers',
+      color: 'text-primary',
+      bg: 'bg-primary/8',
+      border: 'border-primary/20',
+    },
+    {
+      label: 'Total Submissions',
+      value: stats.totalSubmissions,
+      icon: FileText,
+      sub: `${stats.victimReports} reports · ${stats.volunteerApplications} applications`,
+      color: 'text-blue-600',
+      bg: 'bg-blue-50',
+      border: 'border-blue-100',
+    },
+    {
+      label: 'New / Pending',
+      value: stats.newSubmissions,
+      icon: AlertTriangle,
+      sub: `${stats.inProgressSubmissions} in progress`,
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+      border: 'border-amber-100',
+    },
+    {
+      label: 'Resolution Rate',
+      value: `${resolutionRate}%`,
+      icon: TrendingUp,
+      sub: `${stats.resolvedSubmissions} resolved`,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-100',
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-[#002D04]">Dashboard</h2>
-        <p className="text-sm text-gray-500">Overview of Aawaaj Movement admin panel</p>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-primary">Command Overview</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Real-time snapshot of the Aawaaj Movement</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+          Live
+        </div>
       </div>
 
-      {/* Bento Grid Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Members</CardTitle>
-            <Users className="h-5 w-5 text-[#002D04]" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-[#002D04]">{stats.totalUsers}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Submissions</CardTitle>
-            <FileText className="h-5 w-5 text-[#002D04]" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-[#002D04]">{stats.totalSubmissions}</p>
-            <div className="mt-1 flex gap-2 text-xs text-gray-500">
-              <span>{stats.victimReports} reports</span>
-              <span>·</span>
-              <span>{stats.volunteerApplications} applications</span>
+      {/* Stats Bento Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {statCards.map((card) => (
+          <div
+            key={card.label}
+            className={`relative overflow-hidden rounded-2xl border ${card.border} bg-white p-6 shadow-sm transition-shadow hover:shadow-md`}
+          >
+            <div className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl ${card.bg}`}>
+              <card.icon className={`h-5 w-5 ${card.color}`} />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">New / Pending</CardTitle>
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-yellow-600">{stats.newSubmissions}</p>
-            <div className="mt-1 flex gap-2 text-xs text-gray-500">
-              <Clock className="h-3 w-3" />
-              <span>{stats.inProgressSubmissions} in progress</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Resolved</CardTitle>
-            <CheckCircle className="h-5 w-5 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600">{stats.resolvedSubmissions}</p>
-            <div className="mt-1 flex gap-2 text-xs text-gray-500">
-              <TrendingUp className="h-3 w-3" />
-              <span>
-                {stats.totalSubmissions > 0
-                  ? Math.round((stats.resolvedSubmissions / stats.totalSubmissions) * 100)
-                  : 0}
-                % resolution rate
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+            <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
+            <p className={`mt-1 text-3xl font-bold ${card.color}`}>{card.value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{card.sub}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Activity Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Submissions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Recent Submissions</CardTitle>
-            <CardDescription>Latest 5 submissions</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div className="rounded-2xl border border-border bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-border px-6 py-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8">
+              <Activity className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Recent Submissions</h3>
+              <p className="text-xs text-muted-foreground">Latest 5 entries</p>
+            </div>
+          </div>
+          <div className="p-4">
             {recentSubmissions.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-8">No submissions yet</p>
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <FileText className="mb-2 h-8 w-8 opacity-30" />
+                <p className="text-sm">No submissions yet</p>
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {recentSubmissions.map((sub) => (
                   <div
                     key={sub.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
+                    className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/60"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{sub.full_name}</p>
-                      <p className="text-xs text-gray-500">
-                        {sub.type === 'victim_report' ? 'Victim Report' : 'Volunteer Application'}{' '}
-                        · {formatDateTime(sub.created_at)}
+                      <p className="truncate text-sm font-medium text-foreground">{sub.full_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {sub.type === 'victim_report' ? '🛡️ Victim Report' : '🙋 Volunteer Application'}
+                        {' · '}
+                        {formatDateTime(sub.created_at)}
                       </p>
                     </div>
-                    <Badge className={statusColor(sub.status)} variant="secondary">
+                    <Badge className={`ml-3 shrink-0 border text-xs font-medium ${statusStyles[sub.status] || 'bg-gray-100 text-gray-600 border-gray-200'}`} variant="outline">
                       {sub.status}
                     </Badge>
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Recent Audit Logs (President only) */}
+        {/* Recent Audit Logs */}
         {hasRole(['President']) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Activity</CardTitle>
-              <CardDescription>Latest admin actions</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <div className="rounded-2xl border border-border bg-white shadow-sm">
+            <div className="flex items-center gap-3 border-b border-border px-6 py-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10">
+                <BarChart3 className="h-4 w-4 text-accent" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
+                <p className="text-xs text-muted-foreground">Latest admin actions</p>
+              </div>
+            </div>
+            <div className="p-4">
               {recentLogs.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-8">No activity yet</p>
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Clock className="mb-2 h-8 w-8 opacity-30" />
+                  <p className="text-sm">No activity yet</p>
+                </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {recentLogs.map((log) => (
-                    <div key={log.id} className="rounded-lg border p-3">
-                      <p className="text-sm font-medium">{log.action}</p>
-                      <p className="text-xs text-gray-500">
-                        by {log.admin_name} · {formatDateTime(log.created_at)}
+                    <div key={log.id} className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+                      <p className="text-sm font-medium capitalize text-foreground">
+                        {log.action.replace(/_/g, ' ')}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        by <span className="font-medium text-primary">{log.admin_name}</span>
+                        {' · '}
+                        {formatDateTime(log.created_at)}
                       </p>
                     </div>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Placeholder if not President */}
+        {!hasRole(['President']) && (
+          <div className="rounded-2xl border border-border bg-white shadow-sm">
+            <div className="flex items-center gap-3 border-b border-border px-6 py-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8">
+                <CheckCircle className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Status Summary</h3>
+                <p className="text-xs text-muted-foreground">Submission breakdown</p>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              {[
+                { label: 'New', count: stats.newSubmissions, color: 'bg-blue-500' },
+                { label: 'In Progress', count: stats.inProgressSubmissions, color: 'bg-amber-500' },
+                { label: 'Resolved', count: stats.resolvedSubmissions, color: 'bg-emerald-500' },
+              ].map((item) => (
+                <div key={item.label} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{item.label}</span>
+                    <span className="font-semibold text-foreground">{item.count}</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-muted">
+                    <div
+                      className={`h-1.5 rounded-full ${item.color} transition-all`}
+                      style={{ width: stats.totalSubmissions > 0 ? `${(item.count / stats.totalSubmissions) * 100}%` : '0%' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

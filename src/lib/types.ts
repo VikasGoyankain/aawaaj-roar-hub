@@ -103,20 +103,6 @@ export interface Submission {
   converted_to_member: boolean | null;
   created_at: string;
   updated_at: string;
-  // Extended fields from the new registration form
-  dob?: string | null;
-  district?: string | null;
-  state?: string | null;
-  pincode?: string | null;
-  recommended_by?: string | null;
-  serve_role?: string | null;
-  volunteer_scope?: string | null;
-  serve_area_district?: string | null;
-  serve_area_state?: string | null;
-  serve_area_pincode?: string | null;
-  college?: string | null;
-  about_self?: string | null;
-  consent?: boolean | null;
 }
 
 export interface AuditLog {

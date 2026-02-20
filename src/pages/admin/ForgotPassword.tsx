@@ -7,8 +7,7 @@ import { forgotPasswordSchema, type ForgotPasswordFormData } from '@/lib/validat
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, ArrowLeft, CheckCircle, Mail } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle, Mail, Shield } from 'lucide-react';
 
 export default function ForgotPassword() {
   const { resetPassword } = useAuth();
@@ -34,60 +33,71 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#002D04] to-[#004d0a] px-4">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#002D04]">
-            <Mail className="h-8 w-8 text-[#F4C430]" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-primary px-4">
+      <div className="absolute inset-0 opacity-5">
+        <div className="digital-network-grid" />
+      </div>
+      <div className="absolute -top-40 -left-40 h-96 w-96 rounded-full bg-accent/20 blur-3xl" />
+      <div className="absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-accent/10 blur-3xl" />
+
+      <div className="relative w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent shadow-lg shadow-accent/30">
+            <Mail className="h-7 w-7 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold text-[#002D04]">Reset Password</CardTitle>
-          <CardDescription>Enter your email to receive a password reset link</CardDescription>
-        </CardHeader>
-        <CardContent>
+          <h1 className="text-3xl font-black tracking-tight text-white">Reset Password</h1>
+          <p className="mt-1 text-sm text-white/60">We'll send a secure link to your email</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-sm">
           {success ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-                <CheckCircle className="h-4 w-4 shrink-0" />
-                Password reset email sent. Check your inbox.
+            <div className="space-y-5">
+              <div className="flex items-start gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
+                <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>Password reset email sent! Check your inbox and spam folder.</p>
               </div>
               <Link to="/login">
-                <Button variant="outline" className="w-full">
+                <Button className="h-11 w-full rounded-xl bg-accent font-semibold text-primary hover:bg-accent/90">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Login
                 </Button>
               </Link>
             </div>
           ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               {error && (
-                <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                <div className="flex items-center gap-2 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-300">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   {error}
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-white/80">
+                  Email address
+                </Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="admin@aawaaj.org"
                   {...register('email')}
-                  className={errors.email ? 'border-red-500' : ''}
+                  className={`h-11 border-white/20 bg-white/10 text-white placeholder:text-white/30 focus-visible:ring-accent ${
+                    errors.email ? 'border-red-400/50' : ''
+                  }`}
                 />
                 {errors.email && (
-                  <p className="text-xs text-red-500">{errors.email.message}</p>
+                  <p className="text-xs text-red-400">{errors.email.message}</p>
                 )}
               </div>
 
               <Button
                 type="submit"
-                className="w-full bg-[#002D04] hover:bg-[#004d0a]"
                 disabled={isSubmitting}
+                className="h-11 w-full rounded-xl bg-accent font-semibold text-primary hover:bg-accent/90 shadow-lg shadow-accent/20"
               >
                 {isSubmitting ? (
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     Sending...
                   </div>
                 ) : (
@@ -98,7 +108,7 @@ export default function ForgotPassword() {
               <div className="text-center">
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-1 text-sm text-[#002D04] underline hover:text-[#004d0a]"
+                  className="inline-flex items-center gap-1 text-xs text-white/40 hover:text-white/70 transition-colors"
                 >
                   <ArrowLeft className="h-3 w-3" />
                   Back to Login
@@ -106,8 +116,8 @@ export default function ForgotPassword() {
               </div>
             </form>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

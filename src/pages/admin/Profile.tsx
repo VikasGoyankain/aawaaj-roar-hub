@@ -4,7 +4,7 @@ import { uploadToImageKit } from '@/lib/imagekit';
 import { useAuth } from '@/contexts/AuthContext';
 import { getInitials, formatDate } from '@/lib/utils';
 import { ALL_STATES, STATES_AND_DISTRICTS, lookupPincode, SKILLS_LIST } from '@/lib/india-data';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// Card components no longer used in this view — replaced with custom divs
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -303,92 +303,91 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-[#002D04]">My Profile</h2>
-        <p className="text-sm text-gray-500">Manage your personal details and account settings</p>
+        <h2 className="text-2xl font-bold text-primary">My Profile</h2>
+        <p className="text-sm text-muted-foreground">Manage your personal details and account settings</p>
       </div>
 
       {/* Avatar & Quick Info */}
-      <Card>
-        <CardContent className="flex flex-col items-center gap-6 p-6 sm:flex-row">
-          <div className="relative">
-            <Avatar className="h-24 w-24">
+      <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+        <div className="h-20 bg-gradient-to-r from-primary to-primary/70" />
+        <div className="flex flex-col items-center gap-4 p-6 sm:flex-row sm:items-end">
+          <div className="relative -mt-14">
+            <Avatar className="h-24 w-24 ring-4 ring-white shadow-lg">
               {form.profile_photo_url ? (
                 <AvatarImage src={form.profile_photo_url} alt={profile.full_name} />
               ) : null}
-              <AvatarFallback className="bg-[#002D04] text-2xl text-[#F4C430]">
+              <AvatarFallback className="bg-primary text-2xl font-bold text-accent">
                 {getInitials(profile.full_name)}
               </AvatarFallback>
             </Avatar>
             <label
-              className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#F4C430] text-[#002D04] shadow-md hover:bg-[#dab22a] transition-colors"
+              className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-accent shadow-md hover:bg-accent/90 transition-colors"
               title="Upload photo"
             >
               {uploading ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#002D04] border-t-transparent" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               ) : (
-                <Camera className="h-4 w-4" />
+                <Camera className="h-4 w-4 text-primary" />
               )}
               <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" disabled={uploading} />
             </label>
           </div>
-          <div className="flex-1 text-center sm:text-left">
-            <h3 className="text-xl font-bold text-[#002D04]">{profile.full_name}</h3>
-            <p className="text-sm text-gray-500">{profile.email}</p>
+          <div className="flex-1 pb-1 text-center sm:text-left">
+            <h3 className="text-xl font-bold text-foreground">{profile.full_name}</h3>
+            <p className="text-sm text-muted-foreground">{profile.email}</p>
             <div className="mt-2 flex flex-wrap justify-center gap-1.5 sm:justify-start">
               {roles.map((r) => (
-                <Badge key={r} className={roleBadgeColor[r] || 'bg-gray-100 text-gray-700'} variant="secondary">
+                <Badge key={r} className={roleBadgeColor[r] || 'bg-muted text-muted-foreground'} variant="secondary">
                   {r}
                 </Badge>
               ))}
             </div>
-            <p className="mt-2 text-xs text-gray-400">
-              <Calendar className="mr-1 inline h-3 w-3" />
-              Member since {formatDate(profile.joined_on)}
-            </p>
           </div>
-        </CardContent>
-      </Card>
+          <p className="pb-1 text-xs text-muted-foreground">
+            <Calendar className="mr-1 inline h-3 w-3" />
+            Member since {formatDate(profile.joined_on)}
+          </p>
+        </div>
+      </div>
 
       {/* Personal Details Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <User className="h-5 w-5 text-[#002D04]" /> Personal Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="rounded-2xl border border-border bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border px-6 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8">
+            <User className="h-4 w-4 text-primary" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">Personal Details</h3>
+        </div>
+        <div className="space-y-4 p-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 text-gray-400" /> Full Name *
-              </Label>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Full Name *</Label>
               <Input
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                className="rounded-xl"
               />
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <Mail className="h-3.5 w-3.5 text-gray-400" /> Email
-              </Label>
-              <Input value={profile.email} disabled className="bg-gray-50" />
-              <p className="text-[11px] text-gray-400">Email cannot be changed here</p>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</Label>
+              <Input value={profile.email} disabled className="rounded-xl bg-muted/50" />
+              <p className="text-[11px] text-muted-foreground">Email cannot be changed here</p>
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 text-gray-400" /> Mobile Number
-              </Label>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mobile Number</Label>
               <Input
                 value={form.mobile_no}
                 onChange={(e) => setForm({ ...form, mobile_no: e.target.value })}
                 placeholder="+91 XXXXX XXXXX"
+                className="rounded-xl"
               />
             </div>
             <div className="space-y-2">
-              <Label>Gender</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Gender</Label>
               <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="rounded-xl">
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
@@ -399,55 +398,56 @@ export default function ProfilePage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>
-                <Calendar className="mr-1 inline h-3.5 w-3.5 text-gray-400" /> Date of Birth
-              </Label>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date of Birth</Label>
               <Input
                 type="date"
                 value={form.dob}
                 onChange={(e) => setForm({ ...form, dob: e.target.value })}
+                className="rounded-xl"
               />
             </div>
             <div className="space-y-2">
-              <Label>College / Region</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">College / Region</Label>
               <Input
                 value={form.current_region_or_college}
                 onChange={(e) => setForm({ ...form, current_region_or_college: e.target.value })}
                 placeholder="e.g., Delhi University, North Campus"
+                className="rounded-xl"
               />
             </div>
           </div>
 
           <Separator />
 
-          {/* ── Location (Pincode → auto-fill state & district) ── */}
+          {/* Location */}
           <div>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#002D04]">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
               <MapPin className="h-4 w-4" /> Location
-            </h3>
+            </h4>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label className="text-xs">Pincode</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pincode</Label>
                 <div className="relative">
                   <Input
                     value={form.pincode}
                     onChange={(e) => handlePincodeChange(e.target.value)}
                     placeholder="e.g. 110001"
                     maxLength={6}
+                    className="rounded-xl"
                   />
                   {pincodeLoading && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                   )}
                 </div>
-                <p className="text-[11px] text-gray-400">Enter pincode to auto-fill state & district</p>
+                <p className="text-[11px] text-muted-foreground">Auto-fills state & district</p>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">State</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">State</Label>
                 <Select
                   value={form.state}
                   onValueChange={(v) => setForm((prev) => ({ ...prev, state: v, district: '' }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder="Select state" />
                   </SelectTrigger>
                   <SelectContent>
@@ -458,13 +458,13 @@ export default function ProfilePage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">District</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">District</Label>
                 <Select
                   value={form.district}
                   onValueChange={(v) => setForm((prev) => ({ ...prev, district: v, residence_district: v }))}
                   disabled={districts.length === 0}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder={districts.length === 0 ? 'Select state first' : 'Select district'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -479,25 +479,24 @@ export default function ProfilePage() {
 
           <Separator />
 
-          {/* ── Skills & Bio ── */}
+          {/* Skills & Bio */}
           <div>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#002D04]">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
               <Sparkles className="h-4 w-4" /> Skills & Bio
-            </h3>
+            </h4>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs">Skills</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Skills</Label>
                 <SkillsPicker selected={form.skills} onChange={(v) => setForm({ ...form, skills: v })} />
-                <p className="text-[11px] text-gray-400">Select the skills that best represent you</p>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">About Me / Bio</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About Me / Bio</Label>
                 <Textarea
                   value={form.about_self}
                   onChange={(e) => setForm({ ...form, about_self: e.target.value })}
                   placeholder="Tell us a bit about yourself, your interests, and what you bring to the movement."
                   rows={3}
-                  className="resize-none"
+                  className="resize-none rounded-xl"
                 />
               </div>
             </div>
@@ -505,53 +504,57 @@ export default function ProfilePage() {
 
           <Separator />
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-            <Button onClick={handleSave} disabled={saving} className="bg-[#002D04] hover:bg-[#004d0a]">
-              <Save className="mr-2 h-4 w-4" />
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
 
       {/* Security */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Shield className="h-5 w-5 text-[#002D04]" /> Security
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between rounded-lg border p-4">
+      <div className="rounded-2xl border border-border bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border px-6 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8">
+            <Shield className="h-4 w-4 text-primary" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">Security</h3>
+        </div>
+        <div className="p-6">
+          <div className="flex items-center justify-between rounded-xl border border-border bg-muted/20 p-4">
             <div>
-              <p className="text-sm font-medium">Login Password</p>
-              <p className="text-xs text-gray-500">Set a new password for your account</p>
+              <p className="text-sm font-semibold text-foreground">Login Password</p>
+              <p className="text-xs text-muted-foreground">Set a new password for your account</p>
             </div>
-            <Button variant="outline" onClick={() => setPwdOpen(true)}>
+            <Button variant="outline" className="rounded-xl" onClick={() => setPwdOpen(true)}>
               <Lock className="mr-2 h-4 w-4" /> Change Password
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Roles Info (read-only) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Shield className="h-5 w-5 text-[#F4C430]" /> My Roles
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Roles Info */}
+      <div className="rounded-2xl border border-border bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border px-6 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10">
+            <Shield className="h-4 w-4 text-accent" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">My Roles & Permissions</h3>
+        </div>
+        <div className="p-6">
           {roles.length === 0 ? (
-            <p className="text-sm text-gray-400">No roles assigned yet.</p>
+            <p className="text-sm text-muted-foreground">No roles assigned yet.</p>
           ) : (
             <div className="space-y-2">
               {roles.map((r) => (
-                <div key={r} className="flex items-center gap-3 rounded-lg border p-3">
-                  <Badge className={roleBadgeColor[r] || 'bg-gray-100 text-gray-700'} variant="secondary">
+                <div key={r} className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
+                  <Badge className={roleBadgeColor[r] || 'bg-muted text-muted-foreground'} variant="secondary">
                     {r}
                   </Badge>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-muted-foreground">
                     {r === 'President' && 'Full administrative access to the entire system'}
                     {r === 'Technical Head' && 'Manage technical wing, view all members & career data'}
                     {r === 'Content Head' && 'Manage blogs, content moderation, view members'}
@@ -563,47 +566,49 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
-          <p className="mt-3 text-xs text-gray-400">
+          <p className="mt-3 text-xs text-muted-foreground">
             Roles are managed by the President. Contact them if you need role changes.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Password Dialog */}
       <Dialog open={pwdOpen} onOpenChange={setPwdOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="rounded-2xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
+            <DialogTitle className="text-primary">Change Password</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>New Password</Label>
+              <Label className="text-sm font-semibold">New Password</Label>
               <Input
                 type="password"
                 value={pwdForm.newPassword}
                 onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
                 placeholder="Min 8 characters"
+                className="rounded-xl"
               />
             </div>
             <div className="space-y-2">
-              <Label>Confirm Password</Label>
+              <Label className="text-sm font-semibold">Confirm Password</Label>
               <Input
                 type="password"
                 value={pwdForm.confirmPassword}
                 onChange={(e) => setPwdForm({ ...pwdForm, confirmPassword: e.target.value })}
                 placeholder="Re-enter password"
+                className="rounded-xl"
               />
             </div>
             {pwdForm.newPassword && pwdForm.confirmPassword && pwdForm.newPassword !== pwdForm.confirmPassword && (
-              <p className="text-sm text-red-500">Passwords do not match</p>
+              <p className="text-sm text-destructive">Passwords do not match</p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPwdOpen(false)}>Cancel</Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => setPwdOpen(false)}>Cancel</Button>
             <Button
               onClick={handlePasswordChange}
               disabled={pwdSaving || !pwdForm.newPassword || pwdForm.newPassword !== pwdForm.confirmPassword}
-              className="bg-[#002D04] hover:bg-[#004d0a]"
+              className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {pwdSaving ? 'Updating...' : 'Update Password'}
             </Button>
