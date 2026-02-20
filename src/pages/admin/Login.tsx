@@ -11,7 +11,7 @@ import { AlertCircle, Eye, EyeOff, LogIn, Shield } from 'lucide-react';
 import SEO from '@/components/SEO';
 
 export default function Login() {
-  const { signIn, profile, loading } = useAuth();
+  const { signIn, profile, session, loading, profileLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
@@ -19,12 +19,25 @@ export default function Login() {
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/admin';
 
-  // Navigate to the target page as soon as profile is loaded after sign-in
+  // Navigate to the target page once fully signed in + profile loaded
   useEffect(() => {
-    if (!loading && profile) {
+    if (!loading && !profileLoading && profile) {
       navigate(from, { replace: true });
     }
-  }, [loading, profile, navigate, from]);
+  }, [loading, profileLoading, profile, navigate, from]);
+
+  // Show a loading screen after sign-in while profile is being fetched.
+  // Without this the user sees the login form again with no feedback.
+  if (session && (profileLoading || loading)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-primary">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <p className="text-sm text-white/60">Signing you in…</p>
+        </div>
+      </div>
+    );
+  }
 
   const {
     register,

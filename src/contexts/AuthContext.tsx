@@ -9,7 +9,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   roles: RoleName[];
-  loading: boolean;
+  loading: boolean;          // true while initial auth state is being determined
+  profileLoading: boolean;   // true while profile is being fetched after auth
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -21,7 +22,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const INIT_SAFETY_TIMEOUT = 12_000; // 12 seconds — force loading=false if init hangs
+const INIT_SAFETY_TIMEOUT = 15_000; // 15 seconds — force loading=false if init hangs
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -29,12 +30,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<RoleName[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initDoneRef = useRef(false);
+  const profileRef = useRef<Profile | null>(null);
+
+  // Keep ref in sync with state so the onAuthStateChange closure always
+  // has access to the latest profile without a stale-closure problem.
+  useEffect(() => { profileRef.current = profile; }, [profile]);
 
   const fetchProfileAndRoles = useCallback(async (userId: string) => {
     try {
-      // Fetch profile
       const { data: p, error: pErr } = await supabase
         .from('profiles')
         .select('*')
@@ -44,7 +50,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('[Auth] Error fetching profile:', pErr);
         return { profile: null, roles: [] as RoleName[] };
       }
-      // Fetch roles via bridge + roles table
       const { data: ur } = await supabase
         .from('user_roles')
         .select('role_id, roles(name)')
@@ -66,11 +71,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /**
+   * Fetch profile with automatic retries.
+   * The profile row may not exist yet if the DB trigger hasn't fired
+   * (e.g. right after invite or createUser).
+   */
+  const fetchProfileWithRetry = useCallback(
+    async (userId: string, retries = 3, delayMs = 1200) => {
+      for (let i = 0; i < retries; i++) {
+        const result = await fetchProfileAndRoles(userId);
+        if (result.profile) return result;
+        if (i < retries - 1) {
+          console.warn(`[Auth] Profile not found, retrying (${i + 1}/${retries})…`);
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      }
+      return { profile: null, roles: [] as RoleName[] };
+    },
+    [fetchProfileAndRoles]
+  );
+
   const clearAuth = useCallback(() => {
     setUser(null);
     setSession(null);
     setProfile(null);
     setRoles([]);
+    setProfileLoading(false);
+    profileRef.current = null;
   }, []);
 
   /** Wipe all supabase-js auth keys from localStorage so stale tokens never re-hydrate. */
@@ -108,19 +135,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [session, resetInactivityTimer]);
 
   // ── Single source of truth: onAuthStateChange ──
-  // Handles INITIAL_SESSION (replaces getSession), SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT.
   useEffect(() => {
     let mounted = true;
 
-    // Safety timeout: if init never completes, stop the loading spinner
-    // so the user can at least see the login page instead of an infinite spinner.
+    // Safety timeout — if init never completes, stop the spinner.
+    // IMPORTANT: do NOT clear storage here — the session may be valid
+    // but the network is just slow.  Just let the user see the login page
+    // and try again.
     const safetyTimer = setTimeout(() => {
       if (mounted && !initDoneRef.current) {
         console.warn('[Auth] Safety timeout reached — forcing loading=false');
         initDoneRef.current = true;
-        // Also wipe storage in case stale data is causing the hang
-        clearStorage();
-        clearAuth();
         setLoading(false);
       }
     }, INIT_SAFETY_TIMEOUT);
@@ -133,7 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ── No session (signed out, or expired with no refresh) ──
         if (!newSession) {
           clearAuth();
-          if (event === 'SIGNED_OUT') clearStorage(); // belt + suspenders
+          if (event === 'SIGNED_OUT') clearStorage();
           if (!initDoneRef.current) { initDoneRef.current = true; setLoading(false); }
           return;
         }
@@ -142,24 +167,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(newSession.user);
         setSession(newSession);
 
-        // ── Fetch profile for initial load, sign-in, and token refresh ──
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          const { profile: p, roles: r } = await fetchProfileAndRoles(newSession.user.id);
+        // ── Fetch profile on initial load and sign-in (with retries) ──
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          setProfileLoading(true);
+          const { profile: p, roles: r } = await fetchProfileWithRetry(newSession.user.id);
           if (!mounted) return;
 
           if (p) {
             setProfile(p);
             setRoles(r);
-          } else if (event === 'INITIAL_SESSION') {
-            // Profile fetch failed on initial load — the session is likely stale.
-            // Clear state AND localStorage so the stale token never re-hydrates.
-            console.warn('[Auth] Profile fetch failed on init — clearing stale session');
-            clearAuth();
-            clearStorage();
-            try { await supabase.auth.signOut(); } catch { /* ignore */ }
+          } else {
+            // Profile not found even after retries — keep session alive.
+            // The user is authenticated; ProtectedRoute will handle the
+            // missing-profile case gracefully instead of an infinite spinner.
+            console.warn('[Auth] Profile not found after retries — keeping session alive');
           }
-          // For TOKEN_REFRESHED/SIGNED_IN: keep existing profile if fetch failed
-          // (transient network blip), don't blow away the session.
+          setProfileLoading(false);
+        }
+
+        // ── Token refresh — only re-fetch profile if we don't have one.
+        //    If we already have a profile, skip the network call entirely.
+        //    This prevents transient failures from blowing away valid state. ──
+        if (event === 'TOKEN_REFRESHED') {
+          if (!profileRef.current) {
+            setProfileLoading(true);
+            const { profile: p, roles: r } = await fetchProfileAndRoles(newSession.user.id);
+            if (!mounted) return;
+            if (p) { setProfile(p); setRoles(r); }
+            setProfileLoading(false);
+          }
+          // If we already have a profile, do nothing — keep existing data.
         }
 
         // Mark init done after the first event is fully processed
@@ -175,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfileAndRoles, clearAuth, clearStorage]);
+  }, [fetchProfileAndRoles, fetchProfileWithRetry, clearAuth, clearStorage]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -209,7 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, profile, roles, loading, signIn, signOut: handleSignOut, resetPassword, hasRole, canAccessRegion, refreshProfile }}
+      value={{ user, session, profile, roles, loading, profileLoading, signIn, signOut: handleSignOut, resetPassword, hasRole, canAccessRegion, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>
@@ -224,16 +261,18 @@ export function useAuth() {
 
 /**
  * Hook: redirect to /login if session expires while on an /admin page.
- * Put this inside components rendered within <BrowserRouter>.
+ * Only redirects when auth is fully initialized AND no profile fetch is in progress.
  */
 export function useSessionGuard() {
-  const { session, loading } = useAuth();
+  const { session, loading, profileLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (!loading && !session && location.pathname.startsWith('/admin')) {
+    // Don't redirect while initial auth or profile is still loading
+    if (loading || profileLoading) return;
+    if (!session && location.pathname.startsWith('/admin')) {
       navigate('/login', { state: { from: location }, replace: true });
     }
-  }, [session, loading, location, navigate]);
+  }, [session, loading, profileLoading, location, navigate]);
 }
