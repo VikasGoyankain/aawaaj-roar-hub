@@ -71,8 +71,7 @@ export default function AdminLayout() {
   );
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
+    await signOut(); // AuthContext clears state + storage; useSessionGuard then redirects
   };
 
   const roleLabel = roles.length > 0 ? roles[0] : 'Member';

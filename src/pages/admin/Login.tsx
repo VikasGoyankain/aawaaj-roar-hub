@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,13 +10,20 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, Eye, EyeOff, LogIn, Shield } from 'lucide-react';
 
 export default function Login() {
-  const { signIn } = useAuth();
+  const { signIn, profile, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/admin';
+
+  // Navigate to the target page as soon as profile is loaded after sign-in
+  useEffect(() => {
+    if (!loading && profile) {
+      navigate(from, { replace: true });
+    }
+  }, [loading, profile, navigate, from]);
 
   const {
     register,
@@ -31,9 +38,10 @@ export default function Login() {
     const { error: signInError } = await signIn(data.email, data.password);
     if (signInError) {
       setError(signInError.message);
-    } else {
-      navigate(from, { replace: true });
     }
+    // On success: don't navigate here — the useEffect above watches for
+    // profile to be populated (after onAuthStateChange finishes fetching it)
+    // and navigates then. This avoids the race between navigate() and profile fetch.
   };
 
   return (

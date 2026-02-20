@@ -11,7 +11,11 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const { user, profile, roles, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  // Show spinner while:
+  // 1. Initial auth state is being determined, OR
+  // 2. User is already authenticated but profile is still being fetched
+  //    (e.g. right after sign-in, before onAuthStateChange finishes)
+  if (loading || (user && !profile)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">

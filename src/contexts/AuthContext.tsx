@@ -73,10 +73,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRoles([]);
   }, []);
 
+  /** Wipe all supabase-js auth keys from localStorage so stale tokens never re-hydrate. */
+  const clearStorage = useCallback(() => {
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('sb-'))
+        .forEach((k) => localStorage.removeItem(k));
+    } catch { /* private browsing mode may throw */ }
+  }, []);
+
   const handleSignOut = useCallback(async () => {
+    clearStorage();
     try { await supabase.auth.signOut(); } catch { /* ignore */ }
     clearAuth();
-  }, [clearAuth]);
+  }, [clearAuth, clearStorage]);
 
   // Inactivity auto-logout
   const resetInactivityTimer = useCallback(() => {
@@ -108,6 +118,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mounted && !initDoneRef.current) {
         console.warn('[Auth] Safety timeout reached — forcing loading=false');
         initDoneRef.current = true;
+        // Also wipe storage in case stale data is causing the hang
+        clearStorage();
+        clearAuth();
         setLoading(false);
       }
     }, INIT_SAFETY_TIMEOUT);
@@ -120,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ── No session (signed out, or expired with no refresh) ──
         if (!newSession) {
           clearAuth();
+          if (event === 'SIGNED_OUT') clearStorage(); // belt + suspenders
           if (!initDoneRef.current) { initDoneRef.current = true; setLoading(false); }
           return;
         }
@@ -138,10 +152,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setRoles(r);
           } else if (event === 'INITIAL_SESSION') {
             // Profile fetch failed on initial load — the session is likely stale.
-            // Clear everything so the user hits the login page instead of seeing
-            // an infinite spinner or a broken half-authed state.
+            // Clear state AND localStorage so the stale token never re-hydrates.
             console.warn('[Auth] Profile fetch failed on init — clearing stale session');
             clearAuth();
+            clearStorage();
             try { await supabase.auth.signOut(); } catch { /* ignore */ }
           }
           // For TOKEN_REFRESHED/SIGNED_IN: keep existing profile if fetch failed
@@ -161,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfileAndRoles, clearAuth]);
+  }, [fetchProfileAndRoles, clearAuth, clearStorage]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
