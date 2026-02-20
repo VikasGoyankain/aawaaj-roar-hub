@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Eye, EyeOff, LogIn, Shield } from 'lucide-react';
+import SEO from '@/components/SEO';
 
 export default function Login() {
   const { signIn, profile, loading } = useAuth();
@@ -46,6 +47,7 @@ export default function Login() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-primary px-4">
+      <SEO title="Admin Login" description="Sign in to the Aawaaj Movement admin panel." noIndex />
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="digital-network-grid" />

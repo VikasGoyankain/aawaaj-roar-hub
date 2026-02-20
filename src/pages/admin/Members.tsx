@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import SEO from '@/components/SEO';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate, getInitials, INDIAN_REGIONS } from '@/lib/utils';
@@ -291,12 +292,12 @@ export default function MembersPage() {
         });
       } else {
         // SMTP unavailable — generate magic link for admin to share manually
-        // Use 'recovery' (password-reset) type so the link lands on a
-        // "Set your password" screen instead of silently logging in.
+        // Use 'recovery' (password-reset) type so the link lands on the
+        // /reset-password page where the user sets their new password.
         const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
           type: 'recovery',
           email: capturedEmail,
-          options: { redirectTo: `${import.meta.env.VITE_SITE_URL ?? 'https://aawaajmovement.org'}/admin` },
+          options: { redirectTo: `${import.meta.env.VITE_SITE_URL ?? 'https://aawaajmovement.org'}/reset-password` },
         });
         if (linkData?.properties?.action_link) {
           setMagicLinkInfo({ name: capturedName, email: capturedEmail, link: linkData.properties.action_link });
@@ -402,9 +403,11 @@ export default function MembersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <>
+      <SEO title="Members" description="Manage Aawaaj Movement team members, roles, and invitations." noIndex />
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#002D04]">Members Directory</h2>
           <p className="text-sm text-gray-500">{totalCount} total members</p>
@@ -679,5 +682,6 @@ export default function MembersPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }

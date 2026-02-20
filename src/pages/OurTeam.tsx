@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import SEO from '@/components/SEO';
 import { Search, X, MapPin, Calendar, Users, BookOpen, ExternalLink, ChevronRight, Shield, Award, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -543,6 +544,11 @@ export default function OurTeamPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+      <SEO
+        title="Our Team"
+        description="Meet the passionate team behind Aawaaj Movement — leaders, volunteers, and changemakers driving social impact across India."
+        keywords="Aawaaj team, volunteers, social impact leaders, India NGO team"
+      />
       <Navbar />
 
       {/* ── Hero ── */}

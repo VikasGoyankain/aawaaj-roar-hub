@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import SEO from '@/components/SEO';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateTime } from '@/lib/utils';
@@ -128,9 +129,11 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+    <>
+      <SEO title="Audit Logs" description="Complete audit trail of all admin actions in Aawaaj Movement." noIndex />
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
           <ScrollText className="h-5 w-5 text-primary" />
         </div>
@@ -244,5 +247,6 @@ export default function AuditLogsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

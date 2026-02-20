@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import SEO from '@/components/SEO';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -170,9 +171,11 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div className="flex items-start justify-between">
+    <>
+      <SEO title="Dashboard" description="Aawaaj Movement admin dashboard — overview of members, submissions, and activity." noIndex />
+      <div className="space-y-8">
+        {/* Page Header */}
+        <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold text-primary">Command Overview</h2>
           <p className="mt-1 text-sm text-muted-foreground">Real-time snapshot of the Aawaaj Movement</p>
@@ -318,5 +321,6 @@ export default function Dashboard() {
         )}
       </div>
     </div>
+    </>
   );
 }

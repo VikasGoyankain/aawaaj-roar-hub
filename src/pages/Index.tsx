@@ -1,3 +1,4 @@
+import SEO from "@/components/SEO";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import AboutSection from "@/components/AboutSection";
@@ -10,6 +11,10 @@ import FooterSection from "@/components/FooterSection";
 const Index = () => {
   return (
     <div className="min-h-screen">
+      <SEO
+        title="Home"
+        description="Aawaaj Movement — Empowering voices, amplifying change. Join India's youth-led social impact movement fighting for justice, equality, and community welfare."
+      />
       <Navbar />
       <main>
         <HeroSection />

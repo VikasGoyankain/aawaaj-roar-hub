@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import SEO from "@/components/SEO";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { CalendarIcon, Shield, ChevronRight, ChevronLeft, CheckCircle2, Volume2, Mic, Loader2, AlertCircle, MapPin } from "lucide-react";
@@ -889,6 +890,7 @@ export default function Register() {
   if (submitted) {
     return (
       <div className="min-h-screen gradient-dark-green flex items-center justify-center p-6">
+        <SEO title="Registration Complete" noIndex />
         <div className="absolute top-0 left-0 right-0 h-1 bg-saffron" />
         <div className="max-w-lg w-full text-center">
           {/* Animated roar icon */}
@@ -920,6 +922,11 @@ export default function Register() {
 
   return (
     <div className="min-h-screen gradient-dark-green flex flex-col">
+      <SEO
+        title="Register"
+        description="Join Aawaaj Movement — register as a volunteer or report an incident. Be part of India's youth-led social impact movement."
+        keywords="register Aawaaj, volunteer India, report incident, social impact registration"
+      />
       {/* Top accent */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-saffron" />
 

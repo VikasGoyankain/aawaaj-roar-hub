@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, ArrowLeft, CheckCircle, Mail, Shield } from 'lucide-react';
+import SEO from '@/components/SEO';
 
 export default function ForgotPassword() {
   const { resetPassword } = useAuth();
@@ -34,6 +35,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-primary px-4">
+      <SEO title="Forgot Password" description="Reset your Aawaaj Movement admin account password." noIndex />
       <div className="absolute inset-0 opacity-5">
         <div className="digital-network-grid" />
       </div>

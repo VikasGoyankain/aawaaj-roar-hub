@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import SEO from '@/components/SEO';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate } from '@/lib/utils';
@@ -120,9 +121,11 @@ export default function CareerHistoryPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+    <>
+      <SEO title="Career History" description="Track role history and career progression of all Aawaaj Movement members." noIndex />
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
           <Briefcase className="h-5 w-5 text-primary" />
         </div>
@@ -274,5 +277,6 @@ export default function CareerHistoryPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

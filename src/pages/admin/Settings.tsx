@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import SEO from '@/components/SEO';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RoleName, Profile, ProfileWithRoles } from '@/lib/types';
@@ -226,9 +227,11 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-[#002D04]">Settings & Permissions</h2>
+    <>
+      <SEO title="Settings" description="Manage roles, permissions, and system settings for Aawaaj Movement." noIndex />
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-[#002D04]">Settings & Permissions</h2>
         <p className="text-sm text-gray-500">View role definitions and manage user permissions</p>
       </div>
 
@@ -403,5 +406,6 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import SEO from '@/components/SEO';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate } from '@/lib/utils';
@@ -61,8 +62,10 @@ export default function MyImpactPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      {/* Hero Welcome */}
+    <>
+      <SEO title="My Impact" description="View your personal impact, roles, and achievements in Aawaaj Movement." noIndex />
+      <div className="space-y-8">
+        {/* Hero Welcome */}
       <div className="relative overflow-hidden rounded-2xl bg-primary p-6 text-white">
         <div className="absolute inset-0 opacity-5">
           <div className="digital-network-grid" />
@@ -183,5 +186,6 @@ export default function MyImpactPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

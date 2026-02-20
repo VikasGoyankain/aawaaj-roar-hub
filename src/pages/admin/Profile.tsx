@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import SEO from '@/components/SEO';
 import { supabase } from '@/lib/supabase';
 import { uploadToImageKit } from '@/lib/imagekit';
 import { useAuth } from '@/contexts/AuthContext';
@@ -302,9 +303,11 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      {/* Header */}
-      <div>
+    <>
+      <SEO title="My Profile" description="Manage your personal details and account settings." noIndex />
+      <div className="mx-auto max-w-3xl space-y-6">
+        {/* Header */}
+        <div>
         <h2 className="text-2xl font-bold text-primary">My Profile</h2>
         <p className="text-sm text-muted-foreground">Manage your personal details and account settings</p>
       </div>
@@ -616,5 +619,6 @@ export default function ProfilePage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }

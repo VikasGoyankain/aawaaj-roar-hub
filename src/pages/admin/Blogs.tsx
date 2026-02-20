@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import SEO from '@/components/SEO';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate } from '@/lib/utils';
@@ -154,9 +155,11 @@ export default function BlogsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <>
+      <SEO title="Blogs" description="Create and manage blog posts for Aawaaj Movement." noIndex />
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
             <BookOpen className="h-5 w-5 text-primary" />
@@ -355,5 +358,6 @@ export default function BlogsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }

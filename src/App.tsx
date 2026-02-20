@@ -11,8 +11,7 @@ import Register from "./pages/Register";
 import OurTeam from "./pages/OurTeam";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/admin/Login";
-import ForgotPassword from "./pages/admin/ForgotPassword";
-import Dashboard from "./pages/admin/Dashboard";
+import ForgotPassword from "./pages/admin/ForgotPassword";import ResetPassword from './pages/admin/ResetPassword';import Dashboard from "./pages/admin/Dashboard";
 import MembersPage from "./pages/admin/Members";
 import SubmissionsPage from "./pages/admin/Submissions";
 import AuditLogsPage from "./pages/admin/AuditLogs";
@@ -38,6 +37,7 @@ const App = () => (
             <Route path="/our-team" element={<OurTeam />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Admin routes (protected) */}
             <Route

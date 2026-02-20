@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import SEO from '@/components/SEO';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateTime } from '@/lib/utils';
@@ -396,9 +397,11 @@ export default function SubmissionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-[#002D04]">Submissions</h2>
+    <>
+      <SEO title="Submissions" description="Review and manage volunteer applications and victim reports." noIndex />
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-[#002D04]">Submissions</h2>
         <p className="text-sm text-gray-500">{totalCount} total submissions</p>
       </div>
 
@@ -868,5 +871,6 @@ export default function SubmissionsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }
