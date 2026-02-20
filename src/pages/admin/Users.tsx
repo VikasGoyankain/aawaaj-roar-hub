@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate, getInitials, INDIAN_REGIONS } from '@/lib/utils';
-import type { Profile, UserRole } from '@/lib/types';
+import type { Profile } from '@/lib/types';
+import type { RoleName } from '@/lib/types';
+// UserRole here refers to role name strings, not the UserRole DB interface
+type UserRoleName = RoleName;
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,10 +53,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Search, UserPlus, MoreHorizontal, Shield, Trash2 } from 'lucide-react';
 
-const ROLES: UserRole[] = ['President', 'Regional Head', 'University President', 'Volunteer'];
+const ROLES: UserRoleName[] = ['President', 'Regional Head', 'University President', 'Volunteer'];
 
-const roleBadgeColor: Record<UserRole, string> = {
+const roleBadgeColor: Record<UserRoleName, string> = {
   President: 'bg-purple-100 text-purple-700',
+  'Technical Head': 'bg-indigo-100 text-indigo-700',
+  'Content Head': 'bg-pink-100 text-pink-700',
   'Regional Head': 'bg-blue-100 text-blue-700',
   'University President': 'bg-cyan-100 text-cyan-700',
   Volunteer: 'bg-gray-100 text-gray-700',
@@ -73,14 +78,14 @@ export default function UsersPage() {
   const [inviteData, setInviteData] = useState({
     email: '',
     full_name: '',
-    role: '' as UserRole | '',
+    role: '' as UserRoleName | '',
     region: '',
   });
   const [inviteLoading, setInviteLoading] = useState(false);
 
   // Role change dialog state
   const [roleChangeUser, setRoleChangeUser] = useState<Profile | null>(null);
-  const [newRole, setNewRole] = useState<UserRole | ''>('');
+  const [newRole, setNewRole] = useState<UserRoleName | ''>('');
   const [newRegion, setNewRegion] = useState('');
   const [roleChangeLoading, setRoleChangeLoading] = useState(false);
 
@@ -417,7 +422,7 @@ export default function UsersPage() {
               <Label>Role *</Label>
               <Select
                 value={inviteData.role}
-                onValueChange={(v) => setInviteData({ ...inviteData, role: v as UserRole })}
+                onValueChange={(v) => setInviteData({ ...inviteData, role: v as UserRoleName })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
@@ -479,7 +484,7 @@ export default function UsersPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>New Role</Label>
-              <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
+              <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRoleName)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>

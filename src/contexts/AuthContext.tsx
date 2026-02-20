@@ -47,7 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .eq('user_id', userId);
 
     const roleNames: RoleName[] = (ur || []).map(
-      (r: { role_id: number; roles: { name: string } | null }) => (r.roles?.name || 'Volunteer') as RoleName
+      (r: { role_id: number; roles: { name: string } | { name: string }[] | null }) => {
+        const rolesData = r.roles;
+        if (!rolesData) return 'Volunteer' as RoleName;
+        const name = Array.isArray(rolesData) ? rolesData[0]?.name : rolesData.name;
+        return (name || 'Volunteer') as RoleName;
+      }
     );
 
     return { profile: p as Profile, roles: roleNames };

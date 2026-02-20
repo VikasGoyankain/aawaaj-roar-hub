@@ -13,11 +13,11 @@ const Navbar = () => {
   }, []);
 
   const links = [
-    { label: "About", href: "#about" },
-    { label: "Our Model", href: "#model" },
-    { label: "Focus Areas", href: "#focus" },
-    { label: "Leadership", href: "#leadership" },
-    { label: "Why Join", href: "#why-join" },
+    { label: "About", href: "/#about" },
+    { label: "Our Model", href: "/#model" },
+    { label: "Focus Areas", href: "/#focus" },
+    { label: "Our Team", href: "/our-team" },
+    { label: "Why Join", href: "/#why-join" },
   ];
 
   return (
