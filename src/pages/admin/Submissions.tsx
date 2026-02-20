@@ -337,14 +337,26 @@ export default function SubmissionsPage() {
                   <p className="text-sm">{selectedSubmission.phone || '—'}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500">Region</p>
-                  <p className="text-sm">{selectedSubmission.region || '—'}</p>
+                  <p className="text-xs font-medium text-gray-500">Date of Birth</p>
+                  <p className="text-sm">{selectedSubmission.dob || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Location</p>
+                  <p className="text-sm">
+                    {[selectedSubmission.district, selectedSubmission.state, selectedSubmission.pincode]
+                      .filter(Boolean)
+                      .join(', ') || selectedSubmission.region || '—'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500">Status</p>
                   <Badge className={statusColor[selectedSubmission.status]} variant="secondary">
                     {selectedSubmission.status}
                   </Badge>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Recommended By</p>
+                  <p className="text-sm">{selectedSubmission.recommended_by || '—'}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500">Created</p>
@@ -386,27 +398,58 @@ export default function SubmissionsPage() {
 
               {selectedSubmission.type === 'volunteer_application' && (
                 <>
-                  <div className="border-t pt-3">
-                    <p className="mb-1 text-xs font-medium text-gray-500">University</p>
-                    <p className="text-sm">{selectedSubmission.university || '—'}</p>
+                  <div className="border-t pt-3 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">Role</p>
+                      <p className="text-sm capitalize">
+                        {selectedSubmission.serve_role?.replace('_', ' ') || '—'}
+                      </p>
+                    </div>
+                    {selectedSubmission.volunteer_scope && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Volunteer Scope</p>
+                        <p className="text-sm capitalize">{selectedSubmission.volunteer_scope}</p>
+                      </div>
+                    )}
                   </div>
+                  {(selectedSubmission.serve_area_district || selectedSubmission.serve_area_state) && (
+                    <div>
+                      <p className="mb-1 text-xs font-medium text-gray-500">Serve Area</p>
+                      <p className="text-sm">
+                        {[selectedSubmission.serve_area_district, selectedSubmission.serve_area_state, selectedSubmission.serve_area_pincode]
+                          .filter(Boolean)
+                          .join(', ')}
+                      </p>
+                    </div>
+                  )}
+                  {selectedSubmission.college && (
+                    <div>
+                      <p className="mb-1 text-xs font-medium text-gray-500">College / University</p>
+                      <p className="text-sm">{selectedSubmission.college}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="mb-1 text-xs font-medium text-gray-500">Skills</p>
                     <p className="whitespace-pre-wrap rounded bg-gray-50 p-3 text-sm">
                       {selectedSubmission.skills || '—'}
                     </p>
                   </div>
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-gray-500">Motivation</p>
-                    <p className="whitespace-pre-wrap rounded bg-gray-50 p-3 text-sm">
-                      {selectedSubmission.motivation || '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-gray-500">Availability</p>
-                    <p className="text-sm">{selectedSubmission.availability || '—'}</p>
-                  </div>
+                  {selectedSubmission.about_self && (
+                    <div>
+                      <p className="mb-1 text-xs font-medium text-gray-500">About Themselves</p>
+                      <p className="whitespace-pre-wrap rounded bg-gray-50 p-3 text-sm">
+                        {selectedSubmission.about_self}
+                      </p>
+                    </div>
+                  )}
                 </>
+              )}
+
+              {selectedSubmission.consent !== undefined && (
+                <div className="border-t pt-3">
+                  <p className="text-xs font-medium text-gray-500">Contact Consent</p>
+                  <p className="text-sm">{selectedSubmission.consent ? '✅ Consented' : '❌ Not consented'}</p>
+                </div>
               )}
             </div>
           )}

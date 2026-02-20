@@ -77,50 +77,75 @@ export function isValidIndianMobile(num: string): boolean {
   return /^[6-9]\d{9}$/.test(num);
 }
 
-/** Simulate a WhatsApp presence check.
- *  
- *  ⚠️ IMPORTANT: There is no free public API to truly verify WhatsApp accounts.
- *  In production, integrate with WhatsApp Business API or Twilio to check account status.
- *  
- *  This demo implementation uses a realistic simulation:
- *  - Uses a simple hash of the phone number to provide consistent results
- *  - ~80% of valid Indian mobile numbers are assumed to have WhatsApp
- *  - ~15% return "not_found" 
- *  - ~5% return "error" (API rate limit simulation)
- *  
- *  For production, replace with actual API call (see comments below).
- */
-export async function checkWhatsAppPresence(phone: string): Promise<"found" | "not_found" | "error"> {
-  if (!isValidIndianMobile(phone)) return "error";
-  
-  // Simulated network delay (800ms-1.2s)
-  await new Promise((r) => setTimeout(r, 800 + Math.random() * 400));
-  
-  // Simple hash function for consistent results per number
-  let hash = 0;
-  for (let i = 0; i < phone.length; i++) {
-    hash = ((hash << 5) - hash) + phone.charCodeAt(i);
-    hash = hash & hash; // Convert to 32bit integer
+/** Search for colleges in India using the Hipolabs Universities API */
+export async function searchColleges(query: string): Promise<string[]> {
+  if (!query || query.length < 2) return [];
+  try {
+    const res = await fetch(
+      `http://universities.hipolabs.com/search?name=${encodeURIComponent(query)}&country=india`
+    );
+    const data: { name: string }[] = await res.json();
+    return data.map((c) => c.name).slice(0, 30);
+  } catch {
+    return [];
   }
-  const normalized = Math.abs(hash) % 100;
-  
-  // 80% found, 15% not_found, 5% error
-  if (normalized < 80) {
-    return "found";
-  } else if (normalized < 95) {
-    return "not_found";
-  } else {
-    return "error";
-  }
-  
-  // In production, replace with actual API call:
-  // try {
-  //   const res = await fetch(`/api/whatsapp-check?phone=91${phone}`, {
-  //     headers: { Authorization: `Bearer ${YOUR_API_KEY}` }
-  //   });
-  //   const data = await res.json();
-  //   return data.exists ? "found" : "not_found";
-  // } catch {
-  //   return "error";
-  // }
 }
+
+/** Comprehensive skills list for NGO volunteers */
+export const SKILLS_LIST: string[] = [
+  // Communication & Media
+  "Content Writing",
+  "Copywriting",
+  "Journalism",
+  "Blogging",
+  "Public Speaking",
+  "Debate & Argumentation",
+  "Script Writing",
+  "Translation (Hindi/English)",
+  "Regional Language Translation",
+  // Digital & Tech
+  "Social Media Management",
+  "Video Editing",
+  "Graphic Design",
+  "Photography",
+  "Web Development",
+  "App Development",
+  "Data Analysis",
+  "SEO & Digital Marketing",
+  "UI/UX Design",
+  // Legal & Research
+  "Law & Legal Knowledge",
+  "RTI Filing",
+  "Legal Research",
+  "Policy Analysis",
+  "Academic Research",
+  "Fact-Checking & Verification",
+  "Survey & Data Collection",
+  // Leadership & Organization
+  "Event Management",
+  "Team Leadership",
+  "Community Organizing",
+  "Ground Mobilization",
+  "Networking & Outreach",
+  "Project Management",
+  "Fundraising",
+  "Public Relations",
+  // Field & Practical
+  "Field Investigation",
+  "Documentation & Reporting",
+  "Counseling & Support",
+  "First Aid / Health Awareness",
+  "Teaching & Mentoring",
+  "Campus Campaigning",
+  "Petition Drafting",
+  "Volunteer Coordination",
+  // Specialized
+  "Environmental Advocacy",
+  "Women's Rights Advocacy",
+  "Child Rights",
+  "Cybersecurity Awareness",
+  "Financial Literacy",
+  "Political Science",
+  "Sociology",
+  "Psychology",
+].sort();

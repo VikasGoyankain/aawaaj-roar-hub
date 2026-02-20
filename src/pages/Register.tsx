@@ -11,33 +11,21 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FooterSection from "@/components/FooterSection";
 import logoSvg from "@/assets/logo aawaaj.svg";
+import { supabase } from "@/lib/supabase";
 import {
   ALL_STATES,
   STATES_AND_DISTRICTS,
   lookupPincode,
   EMAIL_DOMAINS,
   isValidIndianMobile,
+  searchColleges,
+  SKILLS_LIST,
 } from "@/lib/india-data";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 type Role = "volunteer" | "victim" | null;
-
-const SKILLS = [
-  "Video Editing",
-  "Researching",
-  "Ground Mobilization",
-  "Legal Knowledge",
-  "Social Media",
-  "Aspiring Youth",
-  "Public Speaking",
-  "Journalism",
-];
-
-const REGIONS = [
-  "Ahmedabad", "Surat", "Vadodara", "Rajkot", "Gandhinagar",
-  "Bhavnagar", "Jamnagar", "Junagadh", "Anand", "Mehsana",
-  "Other District",
-];
+type ServeRole = "regional_head" | "campus_coordinator" | "volunteer_sub" | null;
+type VolunteerScope = "campus" | "region" | null;
 
 /* ─── Step progress indicator ───────────────────────────────── */
 const STEPS = ["Identity", "Path", "Recognition", "Roar"];
@@ -72,28 +60,222 @@ function StepDots({ current, total }: { current: number; total: number }) {
   );
 }
 
-/* ─── Skill badge selector ───────────────────────────────────── */
-function SkillBadge({
-  label,
+/* ─── Multi-select Skills Dropdown ────────────────────────────── */
+function MultiSelectSkills({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = SKILLS_LIST.filter((s) => s.toLowerCase().includes(filter.toLowerCase()));
+
+  const toggle = (skill: string) => {
+    onChange(
+      selected.includes(skill)
+        ? selected.filter((x) => x !== skill)
+        : [...selected, skill]
+    );
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "w-full min-h-[2.75rem] rounded-md border px-3 py-2 text-sm text-left flex items-center gap-2 flex-wrap focus:outline-none focus:ring-2 focus:ring-saffron focus:border-saffron/60 transition-all",
+          "bg-white/[0.08] border-white/20 text-white"
+        )}
+      >
+        {selected.length === 0 ? (
+          <span className="text-white/30">Select your skills…</span>
+        ) : (
+          selected.map((s) => (
+            <span
+              key={s}
+              className="inline-flex items-center gap-1 bg-saffron/20 border border-saffron/40 text-saffron text-xs font-heading tracking-wide px-2 py-0.5 rounded-full"
+            >
+              {s}
+              <span
+                onClick={(e) => { e.stopPropagation(); toggle(s); }}
+                className="cursor-pointer hover:text-white ml-0.5 text-[10px] leading-none"
+              >
+                ✕
+              </span>
+            </span>
+          ))
+        )}
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border border-white/20 bg-[hsl(150_47%_12%)] shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-white/10">
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Search skills…"
+              className="bg-white/[0.08] border-white/15 text-white placeholder:text-white/30 h-9 text-sm"
+              autoFocus
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-3 text-white/40 text-sm font-body text-center">No skills found</div>
+            ) : (
+              filtered.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => toggle(s)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 text-sm font-body flex items-center gap-2 transition-colors",
+                    selected.includes(s)
+                      ? "bg-saffron/20 text-saffron"
+                      : "text-white/80 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <span className={cn(
+                    "w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center text-[10px] transition-all",
+                    selected.includes(s)
+                      ? "bg-saffron border-saffron text-white"
+                      : "border-white/30 bg-transparent"
+                  )}>
+                    {selected.includes(s) && "✓"}
+                  </span>
+                  {s}
+                </button>
+              ))
+            )}
+          </div>
+          {selected.length > 0 && (
+            <div className="px-3 py-2 border-t border-white/10 text-xs text-white/40 font-body">
+              {selected.length} skill{selected.length !== 1 ? "s" : ""} selected
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── College Search Component ───────────────────────────────── */
+function CollegeSearch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [results, setResults] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showDrop, setShowDrop] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setShowDrop(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleChange = (raw: string) => {
+    setQuery(raw);
+    onChange(raw);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (raw.length < 2) { setResults([]); setShowDrop(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      const data = await searchColleges(raw);
+      setResults(data);
+      setShowDrop(data.length > 0);
+      setLoading(false);
+    }, 400);
+  };
+
+  const pick = (name: string) => {
+    setQuery(name);
+    onChange(name);
+    setShowDrop(false);
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="relative">
+        <Input
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => { if (results.length) setShowDrop(true); }}
+          placeholder="Search your college / university…"
+          className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11"
+        />
+        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-saffron" />}
+      </div>
+      {showDrop && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border border-white/20 bg-[hsl(150_47%_12%)] shadow-xl overflow-hidden max-h-52 overflow-y-auto">
+          {results.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); pick(name); }}
+              className="w-full text-left px-3 py-2.5 text-sm text-white/90 hover:bg-saffron/20 hover:text-white transition-colors font-body border-b border-white/5 last:border-0"
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Serve Sub-role Option Card ──────────────────────────────── */
+function ServeRoleOption({
   selected,
   onClick,
+  emoji,
+  title,
+  desc,
 }: {
-  label: string;
   selected: boolean;
   onClick: () => void;
+  emoji: string;
+  title: string;
+  desc: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "px-4 py-2 rounded-full text-sm font-heading font-semibold tracking-wide border transition-all duration-200 select-none",
+        "w-full text-left p-3 sm:p-4 rounded-lg border transition-all duration-200",
         selected
-          ? "bg-saffron border-saffron text-white shadow-saffron scale-105"
-          : "bg-white/5 border-white/20 text-white/70 hover:border-saffron/60 hover:text-white"
+          ? "border-saffron bg-saffron/10"
+          : "border-white/15 bg-white/5 hover:border-white/30 hover:bg-white/[0.07]"
       )}
     >
-      {label}
+      <div className="flex items-center gap-3">
+        <span className="text-xl">{emoji}</span>
+        <div className="flex-1 min-w-0">
+          <div className={cn("font-heading font-bold text-sm tracking-wide", selected ? "text-saffron" : "text-white")}>{title}</div>
+          <div className="text-white/50 text-xs font-body leading-relaxed mt-0.5">{desc}</div>
+        </div>
+        {selected && <CheckCircle2 className="w-5 h-5 text-saffron flex-shrink-0" />}
+      </div>
     </button>
   );
 }
@@ -402,26 +584,83 @@ export default function Register() {
   const [selectedState, setSelectedState] = useState("");
   const [district, setDistrict] = useState("");
   const [role, setRole] = useState<Role>(null);
-  const [region, setRegion] = useState("");
+  const [serveRole, setServeRole] = useState<ServeRole>(null);
+  const [volunteerScope, setVolunteerScope] = useState<VolunteerScope>(null);
+  // Serve-role area fields (separate from step-1 location)
+  const [servePincode, setServePincode] = useState("");
+  const [serveState, setServeState] = useState("");
+  const [serveDistrict, setServeDistrict] = useState("");
+  const [college, setCollege] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
+  const [aboutSelf, setAboutSelf] = useState("");
   const [problemDesc, setProblemDesc] = useState("");
   const [recommendedBy, setRecommendedBy] = useState("");
   const [dob, setDob] = useState<Date | undefined>();
+  const [consent, setConsent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Step 2 validation — volunteer path
+  const isServeValid = (() => {
+    if (serveRole === "regional_head") return serveState.length > 0 && serveDistrict.length > 0;
+    if (serveRole === "campus_coordinator") return college.trim().length > 2;
+    if (serveRole === "volunteer_sub") {
+      if (volunteerScope === "campus") return college.trim().length > 2;
+      if (volunteerScope === "region") return serveState.length > 0 && serveDistrict.length > 0;
+      return false;
+    }
+    return false;
+  })();
 
   // Validation helpers
   const stepValid = [
     name.trim().length > 1 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && isValidIndianMobile(whatsapp),
-    role !== null && (role === "victim" ? problemDesc.trim().length > 10 : region.trim().length > 0),
+    role !== null && (role === "victim" ? problemDesc.trim().length > 10 : (serveRole !== null && isServeValid)),
     dob !== undefined,
-    true,
+    consent,
   ];
 
-  function toggleSkill(s: string) {
-    setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
-  }
+  async function handleSubmit() {
+    setSubmitting(true);
+    try {
+      const isVictim = role === "victim";
+      const payload = {
+        type: isVictim ? "victim_report" : "volunteer_application",
+        status: "New",
+        full_name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: whatsapp ? `+91${whatsapp}` : null,
+        pincode: pincode || null,
+        state: selectedState || null,
+        district: district || null,
+        region: district && selectedState ? `${district}, ${selectedState}` : selectedState || null,
+        // Volunteer-specific
+        serve_role: !isVictim ? serveRole : null,
+        volunteer_scope: !isVictim && serveRole === "volunteer_sub" ? volunteerScope : null,
+        serve_area_state: !isVictim ? serveState || null : null,
+        serve_area_district: !isVictim ? serveDistrict || null : null,
+        serve_area_pincode: !isVictim ? servePincode || null : null,
+        college: !isVictim ? college || null : null,
+        university: !isVictim ? college || null : null,
+        skills: !isVictim && skills.length ? skills.join(", ") : null,
+        about_self: !isVictim ? aboutSelf.trim() || null : null,
+        motivation: !isVictim ? aboutSelf.trim() || null : null,
+        // Victim-specific
+        incident_description: isVictim ? problemDesc.trim() : null,
+        // Meta
+        recommended_by: recommendedBy.trim() || null,
+        dob: dob ? dob.toISOString().split("T")[0] : null,
+        consent: consent,
+      };
 
-  function handleSubmit() {
-    setSubmitted(true);
+      const { error } = await supabase.from("submissions").insert(payload);
+      if (error) throw error;
+      setSubmitted(true);
+    } catch (err) {
+      console.error("Submission error:", err);
+      alert("Something went wrong submitting your form. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   /* ────── Thank You Screen ────── */
@@ -564,63 +803,184 @@ export default function Register() {
                     <p className="text-white/50 text-sm font-body">Choose your path — every voice matters.</p>
                   </div>
 
-                  <div className="grid gap-4">
+                  <div className={cn("grid gap-4", role === "volunteer" ? "" : "")}>
                     <PathCard
                       selected={role === "volunteer"}
-                      onClick={() => setRole("volunteer")}
+                      onClick={() => {
+                        if (role === "volunteer") {
+                          setRole(null);
+                          setServeRole(null);
+                          setVolunteerScope(null);
+                          setCollege("");
+                          setServePincode("");
+                          setServeState("");
+                          setServeDistrict("");
+                          setSkills([]);
+                          setAboutSelf("");
+                        } else {
+                          setRole("volunteer");
+                        }
+                      }}
                       icon={<ChevronRight className="w-6 h-6 text-white" />}
-                      title="Volunteer / Regional Head"
-                      desc="Lead change on the ground. Represent your district and build the movement."
+                      title="I want to Serve and Lead"
+                      desc="Lead change on the ground. Represent your district, campus, or community."
                     />
-                    <PathCard
-                      selected={role === "victim"}
-                      onClick={() => setRole("victim")}
-                      icon={<Mic className="w-6 h-6 text-white" />}
-                      title="I am a Victim & Need Help"
-                      desc="Share your story. We'll verify, amplify, and fight for your rights."
-                    />
+                    {role !== "volunteer" && (
+                      <PathCard
+                        selected={role === "victim"}
+                        onClick={() => {
+                          if (role === "victim") {
+                            setRole(null);
+                            setProblemDesc("");
+                          } else {
+                            setRole("victim");
+                            setServeRole(null);
+                            setVolunteerScope(null);
+                          }
+                        }}
+                        icon={<Mic className="w-6 h-6 text-white" />}
+                        title="I am a Victim & Need Help"
+                        desc="Share your story. We'll verify, amplify, and fight for your rights."
+                      />
+                    )}
                   </div>
 
-                  {/* Conditional volunteer fields */}
+                  {/* ── Serve & Lead sub-flow ── */}
                   {role === "volunteer" && (
-                    <div className="space-y-5 pt-2 border-t border-white/10">
+                    <div className="space-y-4 pt-3 border-t border-white/10">
                       <div>
-                        <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">
-                          Which region can you lead? *
+                        <Label className="text-white/70 text-xs font-heading tracking-widest uppercase mb-2.5 block">
+                          Choose your role
                         </Label>
-                        <select
-                          value={region}
-                          onChange={(e) => setRegion(e.target.value)}
-                          className="w-full h-11 rounded-md border border-white/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-saffron focus:border-saffron/60 transition-all text-white"
-                          style={{ backgroundColor: 'hsl(150 47% 14%)' }}
-                        >
-                          <option value="" style={{ backgroundColor: 'hsl(150 47% 14%)' }}>Select your district / region</option>
-                          {REGIONS.map((r) => (
-                            <option key={r} value={r} style={{ backgroundColor: 'hsl(150 47% 14%)' }}>{r}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label className="text-white/80 text-sm font-heading tracking-wide mb-3 block">
-                          Your Skills
-                          <span className="ml-2 text-white/35 font-body font-normal text-xs">(select all that apply)</span>
-                        </Label>
-                        <div className="flex flex-wrap gap-2">
-                          {SKILLS.map((s) => (
-                            <SkillBadge
-                              key={s}
-                              label={s}
-                              selected={skills.includes(s)}
-                              onClick={() => {
-                                setSkills((prev) =>
-                                  prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
-                                );
-                              }}
-                            />
-                          ))}
+                        <div className="space-y-2">
+                          <ServeRoleOption
+                            selected={serveRole === "regional_head"}
+                            onClick={() => { setServeRole("regional_head"); setVolunteerScope(null); setCollege(""); }}
+                            emoji="🗺️"
+                            title="Regional Head"
+                            desc="Manage your District-level problems"
+                          />
+                          <ServeRoleOption
+                            selected={serveRole === "campus_coordinator"}
+                            onClick={() => { setServeRole("campus_coordinator"); setVolunteerScope(null); setServePincode(""); setServeState(""); setServeDistrict(""); }}
+                            emoji="🎓"
+                            title="Campus Coordinator"
+                            desc="Manage your Campus-level problems"
+                          />
+                          <ServeRoleOption
+                            selected={serveRole === "volunteer_sub"}
+                            onClick={() => { setServeRole("volunteer_sub"); setCollege(""); setServePincode(""); setServeState(""); setServeDistrict(""); }}
+                            emoji="✊"
+                            title="Volunteer"
+                            desc="Be the backbone and make real impact"
+                          />
                         </div>
                       </div>
+
+                      {/* Regional Head → location fields */}
+                      {serveRole === "regional_head" && (
+                        <div className="space-y-3 bg-white/[0.03] border border-white/10 rounded-xl p-4">
+                          <Label className="text-white/70 text-xs font-heading tracking-widest uppercase block">
+                            Area you want to lead
+                          </Label>
+                          <LocationFields
+                            pincode={servePincode} setPincode={setServePincode}
+                            selectedState={serveState} setSelectedState={setServeState}
+                            district={serveDistrict} setDistrict={setServeDistrict}
+                          />
+                        </div>
+                      )}
+
+                      {/* Campus Coordinator → college search */}
+                      {serveRole === "campus_coordinator" && (
+                        <div className="space-y-2 bg-white/[0.03] border border-white/10 rounded-xl p-4">
+                          <Label className="text-white/70 text-xs font-heading tracking-widest uppercase block">
+                            Your College / University
+                          </Label>
+                          <CollegeSearch value={college} onChange={setCollege} />
+                          <p className="text-white/35 text-xs font-body">Start typing to search across all Indian colleges</p>
+                        </div>
+                      )}
+
+                      {/* Volunteer → scope choice */}
+                      {serveRole === "volunteer_sub" && (
+                        <div className="space-y-3 bg-white/[0.03] border border-white/10 rounded-xl p-4">
+                          <Label className="text-white/70 text-xs font-heading tracking-widest uppercase block">
+                            Where do you want to volunteer?
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => { setVolunteerScope("campus"); setServePincode(""); setServeState(""); setServeDistrict(""); }}
+                              className={cn(
+                                "px-4 py-3 rounded-lg border text-sm font-heading font-semibold tracking-wide transition-all",
+                                volunteerScope === "campus"
+                                  ? "border-saffron bg-saffron/10 text-saffron"
+                                  : "border-white/15 bg-white/5 text-white/70 hover:border-white/30"
+                              )}
+                            >
+                              🎓 In Campus
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setVolunteerScope("region"); setCollege(""); }}
+                              className={cn(
+                                "px-4 py-3 rounded-lg border text-sm font-heading font-semibold tracking-wide transition-all",
+                                volunteerScope === "region"
+                                  ? "border-saffron bg-saffron/10 text-saffron"
+                                  : "border-white/15 bg-white/5 text-white/70 hover:border-white/30"
+                              )}
+                            >
+                              🗺️ In Region
+                            </button>
+                          </div>
+
+                          {volunteerScope === "campus" && (
+                            <div className="space-y-2 pt-2">
+                              <Label className="text-white/60 text-xs font-heading tracking-wide block">Your College / University</Label>
+                              <CollegeSearch value={college} onChange={setCollege} />
+                            </div>
+                          )}
+
+                          {volunteerScope === "region" && (
+                            <div className="pt-2">
+                              <LocationFields
+                                pincode={servePincode} setPincode={setServePincode}
+                                selectedState={serveState} setSelectedState={setServeState}
+                                district={serveDistrict} setDistrict={setServeDistrict}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Skills multi-select dropdown */}
+                      {serveRole && (
+                        <div className="space-y-2">
+                          <Label className="text-white/80 text-sm font-heading tracking-wide block">
+                            Your Skills
+                            <span className="ml-2 text-white/35 font-body font-normal text-xs">(select all that apply)</span>
+                          </Label>
+                          <MultiSelectSkills selected={skills} onChange={setSkills} />
+                        </div>
+                      )}
+
+                      {/* About yourself (optional) */}
+                      {serveRole && (
+                        <div className="space-y-2">
+                          <Label className="text-white/80 text-sm font-heading tracking-wide block">
+                            About Yourself
+                            <span className="ml-2 text-white/35 font-body font-normal text-xs">(optional — education, achievements, etc.)</span>
+                          </Label>
+                          <Textarea
+                            value={aboutSelf}
+                            onChange={(e) => setAboutSelf(e.target.value)}
+                            placeholder="E.g. B.Tech final year from IIT Delhi, NSS volunteer, led campus anti-ragging campaign, passionate about RTI activism…"
+                            rows={4}
+                            className="bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 resize-none text-sm leading-relaxed"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -707,17 +1067,6 @@ export default function Register() {
                       </Popover>
                     </div>
                   </div>
-
-                  {/* Award callout */}
-                  <div className="bg-saffron/8 border border-saffron/25 rounded-xl p-4 flex items-start gap-3">
-                    <div className="text-2xl">🏆</div>
-                    <div>
-                      <div className="text-saffron text-sm font-heading font-bold tracking-wide mb-1">Best Volunteer Award</div>
-                      <p className="text-white/60 text-xs font-body leading-relaxed">
-                        Top performers are recognized with official certificates, LinkedIn endorsements, and exclusive networking events with legal experts.
-                      </p>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -736,9 +1085,16 @@ export default function Register() {
                       { label: "Email", value: email },
                       { label: "WhatsApp", value: whatsapp ? `+91 ${whatsapp}` : "—" },
                       { label: "Location", value: [district, selectedState, pincode].filter(Boolean).join(", ") || "—" },
-                      { label: "Path", value: role === "volunteer" ? "Volunteer / Regional Head" : role === "victim" ? "Seeking Help" : "—" },
-                      ...(role === "volunteer" && region ? [{ label: "Region", value: region }] : []),
+                      { label: "Path", value: role === "volunteer" ? "I want to Serve and Lead" : role === "victim" ? "Seeking Help" : "—" },
+                      ...(role === "volunteer" && serveRole ? [{
+                        label: "Role",
+                        value: serveRole === "regional_head" ? "Regional Head" : serveRole === "campus_coordinator" ? "Campus Coordinator" : "Volunteer"
+                      }] : []),
+                      ...(role === "volunteer" && serveRole === "regional_head" && serveDistrict ? [{ label: "Serve Area", value: [serveDistrict, serveState].filter(Boolean).join(", ") }] : []),
+                      ...(role === "volunteer" && (serveRole === "campus_coordinator" || (serveRole === "volunteer_sub" && volunteerScope === "campus")) && college ? [{ label: "College", value: college }] : []),
+                      ...(role === "volunteer" && serveRole === "volunteer_sub" && volunteerScope === "region" && serveDistrict ? [{ label: "Volunteer Area", value: [serveDistrict, serveState].filter(Boolean).join(", ") }] : []),
                       ...(role === "volunteer" && skills.length > 0 ? [{ label: "Skills", value: skills.join(", ") }] : []),
+                      ...(role === "volunteer" && aboutSelf.trim() ? [{ label: "About", value: aboutSelf.trim().slice(0, 120) + (aboutSelf.trim().length > 120 ? "…" : "") }] : []),
                       { label: "Recommended By", value: recommendedBy || "—" },
                       { label: "Date of Birth", value: dob ? format(dob, "PPP") : "—" },
                     ].map(({ label, value }) => (
@@ -756,6 +1112,29 @@ export default function Register() {
                       "I pledge to uphold truth, amplify unheard voices, and serve the movement with integrity."
                     </p>
                   </div>
+
+                  {/* Consent Checkbox */}
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <button
+                      type="button"
+                      onClick={() => setConsent(!consent)}
+                      className={cn(
+                        "mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all duration-200",
+                        consent
+                          ? "bg-saffron border-saffron"
+                          : "border-white/30 bg-transparent group-hover:border-white/50"
+                      )}
+                    >
+                      {consent && (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <span className="text-white/70 text-sm font-body leading-relaxed">
+                      I confirm that the information provided is accurate and I consent to receive messages on my given contact details (WhatsApp, Email) for coordination and updates related to Aawaaj Movement. *
+                    </span>
+                  </label>
                 </div>
               )}
             </div>
@@ -792,9 +1171,19 @@ export default function Register() {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="flex items-center gap-2 bg-saffron hover:bg-saffron-dark text-white font-heading font-bold text-sm px-8 py-3 rounded-sm tracking-wide transition-all duration-200 shadow-saffron hover:-translate-y-0.5"
+                  disabled={submitting || !consent}
+                  className={cn(
+                    "flex items-center gap-2 font-heading font-bold text-sm px-8 py-3 rounded-sm tracking-wide transition-all duration-200",
+                    consent && !submitting
+                      ? "bg-saffron hover:bg-saffron-dark text-white shadow-saffron hover:-translate-y-0.5"
+                      : "bg-white/10 text-white/30 cursor-not-allowed"
+                  )}
                 >
-                  <Volume2 className="w-4 h-4" /> Join the Roar
+                  {submitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</>
+                  ) : (
+                    <><Volume2 className="w-4 h-4" /> Join the Roar</>
+                  )}
                 </button>
               )}
             </div>
