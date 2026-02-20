@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { CalendarIcon, Shield, ChevronRight, ChevronLeft, CheckCircle2, Volume2, Mic, Loader2, AlertCircle, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -405,7 +404,124 @@ function WhatsAppInput({
   );
 }
 
-/* ─── Smart Location Fields ───────────────────────────────────── */
+/* ─── Date of Birth Picker ────────────────────────────────────── */
+function DobPicker({
+  value,
+  onChange,
+}: {
+  value: Date | undefined;
+  onChange: (d: Date | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [textVal, setTextVal] = useState(value ? format(value, "dd/MM/yyyy") : "");
+  const [textError, setTextError] = useState("");
+  const currentYear = new Date().getFullYear();
+
+  // Keep text in sync when calendar picks a date
+  const handleCalendarSelect = (d: Date | undefined) => {
+    onChange(d);
+    setTextVal(d ? format(d, "dd/MM/yyyy") : "");
+    setTextError("");
+    if (d) setOpen(false);
+  };
+
+  // Parse manual input on blur
+  const handleTextBlur = () => {
+    const raw = textVal.trim();
+    if (!raw) { onChange(undefined); setTextError(""); return; }
+    // Accept dd/mm/yyyy or dd-mm-yyyy
+    const match = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (!match) { setTextError("Use dd/mm/yyyy format"); return; }
+    const [, d, m, y] = match;
+    const parsed = new Date(Number(y), Number(m) - 1, Number(d));
+    if (
+      isNaN(parsed.getTime()) ||
+      parsed.getDate() !== Number(d) ||
+      parsed.getMonth() !== Number(m) - 1
+    ) {
+      setTextError("Invalid date"); return;
+    }
+    if (parsed > new Date()) { setTextError("Date cannot be in the future"); return; }
+    if (parsed < new Date("1950-01-01")) { setTextError("Year must be 1950 or later"); return; }
+    onChange(parsed);
+    setTextVal(format(parsed, "dd/MM/yyyy"));
+    setTextError("");
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Manual text input */}
+      <div className="relative">
+        <Input
+          value={textVal}
+          onChange={(e) => { setTextVal(e.target.value); setTextError(""); }}
+          onBlur={handleTextBlur}
+          placeholder="dd/mm/yyyy"
+          maxLength={10}
+          className={cn(
+            "bg-white/[0.08] border-white/20 text-white placeholder:text-white/30 focus-visible:ring-saffron focus-visible:border-saffron/60 h-11 pr-10",
+            textError && "border-red-400/60"
+          )}
+        />
+        {/* Calendar toggle */}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-saffron/70 hover:text-saffron transition-colors"
+            >
+              <CalendarIcon className="w-4 h-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-auto p-0 border-white/20"
+            style={{ backgroundColor: "hsl(150 47% 12%)" }}
+            align="start"
+          >
+            <Calendar
+              mode="single"
+              selected={value}
+              onSelect={handleCalendarSelect}
+              captionLayout="dropdown-buttons"
+              fromYear={1950}
+              toYear={currentYear}
+              defaultMonth={value ?? new Date(2000, 0)}
+              disabled={(date) => date > new Date() || date < new Date("1950-01-01")}
+              className="p-3 pointer-events-auto text-white"
+              classNames={{
+                caption: "flex justify-center items-center gap-1 pt-1",
+                caption_label: "hidden",
+                caption_dropdowns: "flex gap-1",
+                dropdown:
+                  "bg-[hsl(150_47%_14%)] border border-white/20 text-white text-sm rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-saffron cursor-pointer",
+                nav_button:
+                  "h-7 w-7 bg-transparent border border-white/20 text-white rounded hover:bg-white/10 flex items-center justify-center",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                head_cell: "text-white/40 rounded-md w-9 font-normal text-[0.8rem]",
+                day: "h-9 w-9 p-0 font-normal rounded-md hover:bg-saffron/20 text-white aria-selected:opacity-100 transition-colors",
+                day_selected: "bg-saffron text-white hover:bg-saffron",
+                day_today: "border border-saffron/40 text-saffron",
+                day_outside: "text-white/20 opacity-50",
+                day_disabled: "text-white/20 opacity-30 cursor-not-allowed",
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+      {textError && (
+        <p className="text-red-400 text-xs font-body flex items-center gap-1.5">
+          <AlertCircle className="w-3 h-3" /> {textError}
+        </p>
+      )}
+      {value && !textError && (
+        <p className="text-green-400 text-xs font-body flex items-center gap-1.5">
+          <CheckCircle2 className="w-3 h-3" /> {format(value, "dd MMMM yyyy")}
+        </p>
+      )}
+    </div>
+  );
+}
 function LocationFields({
   pincode, setPincode,
   selectedState, setSelectedState,
@@ -1036,35 +1152,7 @@ export default function Register() {
                       <Label className="text-white/80 text-sm font-heading tracking-wide mb-1.5 block">
                         Date of Birth *
                       </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal h-11 bg-white/[0.08] border-white/20 hover:bg-white/[0.12] text-white hover:text-white",
-                              !dob && "text-white/30"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4 text-saffron" />
-                            {dob ? format(dob, "PPP") : "Pick your date of birth"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="w-auto p-0 bg-primary border-white/20"
-                          align="start"
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={dob}
-                            onSelect={setDob}
-                            initialFocus
-                            disabled={(date) =>
-                              date > new Date() || date < new Date("1950-01-01")
-                            }
-                            className="p-3 pointer-events-auto text-white [&_.rdp-day_button:hover]:bg-saffron/20 [&_.rdp-day_button.rdp-day_selected]:bg-saffron"
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <DobPicker value={dob} onChange={setDob} />
                     </div>
                   </div>
                 </div>

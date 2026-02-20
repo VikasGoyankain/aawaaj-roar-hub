@@ -71,8 +71,8 @@ export default function SubmissionsPage() {
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-    if (currentUser?.role === 'Regional Head' || currentUser?.role === 'University President') {
-      query = query.eq('region', currentUser.region);
+    if (hasRole(['Regional Head', 'University President']) && !hasRole(['President'])) {
+      query = query.eq('region', currentUser?.residence_district ?? '');
     }
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);

@@ -1,18 +1,20 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import type { Profile, UserRole } from '@/lib/types';
+import type { Profile, RoleName } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  roles: RoleName[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
-  hasRole: (roles: UserRole | UserRole[]) => boolean;
-  canAccessRegion: (region: string | null) => boolean;
+  hasRole: (r: RoleName | RoleName[]) => boolean;
+  canAccessRegion: (district: string | null) => boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,21 +25,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [roles, setRoles] = useState<RoleName[]>([]);
   const [loading, setLoading] = useState(true);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
+  const fetchProfileAndRoles = useCallback(async (userId: string) => {
+    // Fetch profile
+    const { data: p, error: pErr } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
-
-    if (error) {
-      console.error('Error fetching profile:', error);
-      return null;
+    if (pErr) {
+      console.error('Error fetching profile:', pErr);
+      return { profile: null, roles: [] as RoleName[] };
     }
-    return data as Profile;
+    // Fetch roles via bridge + roles table
+    const { data: ur } = await supabase
+      .from('user_roles')
+      .select('role_id, roles(name)')
+      .eq('user_id', userId);
+
+    const roleNames: RoleName[] = (ur || []).map(
+      (r: { role_id: number; roles: { name: string } | null }) => (r.roles?.name || 'Volunteer') as RoleName
+    );
+
+    return { profile: p as Profile, roles: roleNames };
   }, []);
 
   const handleSignOut = useCallback(async () => {
@@ -45,67 +58,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
+    setRoles([]);
   }, []);
 
   // Inactivity auto-logout
   const resetInactivityTimer = useCallback(() => {
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
-    }
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     if (session) {
-      inactivityTimerRef.current = setTimeout(() => {
-        handleSignOut();
-      }, INACTIVITY_TIMEOUT);
+      inactivityTimerRef.current = setTimeout(() => handleSignOut(), INACTIVITY_TIMEOUT);
     }
   }, [session, handleSignOut]);
 
   useEffect(() => {
     if (!session) return;
-
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-    events.forEach((event) => window.addEventListener(event, resetInactivityTimer));
+    events.forEach((e) => window.addEventListener(e, resetInactivityTimer));
     resetInactivityTimer();
-
     return () => {
-      events.forEach((event) => window.removeEventListener(event, resetInactivityTimer));
+      events.forEach((e) => window.removeEventListener(e, resetInactivityTimer));
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     };
   }, [session, resetInactivityTimer]);
 
   // Initialize auth state
   useEffect(() => {
-    const initAuth = async () => {
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
-
-      if (currentSession?.user) {
-        setUser(currentSession.user);
-        setSession(currentSession);
-        const p = await fetchProfile(currentSession.user.id);
+    const init = async () => {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (s?.user) {
+        setUser(s.user);
+        setSession(s);
+        const { profile: p, roles: r } = await fetchProfileAndRoles(s.user.id);
         setProfile(p);
+        setRoles(r);
       }
       setLoading(false);
     };
+    init();
 
-    initAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-
-      if (event === 'SIGNED_IN' && newSession?.user) {
-        const p = await fetchProfile(newSession.user.id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, ns) => {
+      setSession(ns);
+      setUser(ns?.user ?? null);
+      if (event === 'SIGNED_IN' && ns?.user) {
+        const { profile: p, roles: r } = await fetchProfileAndRoles(ns.user.id);
         setProfile(p);
+        setRoles(r);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
+        setRoles([]);
       }
     });
-
     return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+  }, [fetchProfileAndRoles]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -119,32 +122,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error ? new Error(error.message) : null };
   };
 
-  const hasRole = (roles: UserRole | UserRole[]) => {
-    if (!profile) return false;
-    const roleArray = Array.isArray(roles) ? roles : [roles];
-    return roleArray.includes(profile.role);
+  const hasRole = (r: RoleName | RoleName[]) => {
+    const arr = Array.isArray(r) ? r : [r];
+    return arr.some((role) => roles.includes(role));
   };
 
-  const canAccessRegion = (region: string | null) => {
-    if (!profile) return false;
-    if (profile.role === 'President') return true;
-    if (!region) return true;
-    return profile.region === region;
+  const canAccessRegion = (district: string | null) => {
+    if (hasRole('President')) return true;
+    if (!district) return true;
+    return profile?.residence_district === district;
+  };
+
+  const refreshProfile = async () => {
+    if (!user) return;
+    const { profile: p, roles: r } = await fetchProfileAndRoles(user.id);
+    setProfile(p);
+    setRoles(r);
   };
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        session,
-        profile,
-        loading,
-        signIn,
-        signOut: handleSignOut,
-        resetPassword,
-        hasRole,
-        canAccessRegion,
-      }}
+      value={{ user, session, profile, roles, loading, signIn, signOut: handleSignOut, resetPassword, hasRole, canAccessRegion, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>
@@ -152,9 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }

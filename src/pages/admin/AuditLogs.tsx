@@ -27,9 +27,15 @@ const PAGE_SIZE = 20;
 
 const actionLabels: Record<string, { label: string; color: string }> = {
   invite_user: { label: 'User Invited', color: 'bg-blue-100 text-blue-700' },
+  add_member: { label: 'Member Added', color: 'bg-blue-100 text-blue-700' },
+  grant_role: { label: 'Role Granted', color: 'bg-purple-100 text-purple-700' },
+  revoke_role: { label: 'Role Revoked', color: 'bg-orange-100 text-orange-700' },
   change_role: { label: 'Role Changed', color: 'bg-purple-100 text-purple-700' },
   delete_user: { label: 'User Deleted', color: 'bg-red-100 text-red-700' },
+  delete_member: { label: 'Member Deleted', color: 'bg-red-100 text-red-700' },
   update_submission_status: { label: 'Status Updated', color: 'bg-yellow-100 text-yellow-700' },
+  edit_career_history: { label: 'Career Edited', color: 'bg-teal-100 text-teal-700' },
+  delete_blog: { label: 'Blog Deleted', color: 'bg-red-100 text-red-700' },
 };
 
 export default function AuditLogsPage() {

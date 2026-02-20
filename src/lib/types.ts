@@ -1,15 +1,64 @@
-export type UserRole = 'President' | 'Regional Head' | 'University President' | 'Volunteer';
+// ── Role names that match the DB roles.name column ──
+export type RoleName =
+  | 'President'
+  | 'Technical Head'
+  | 'Content Head'
+  | 'Regional Head'
+  | 'University President'
+  | 'Volunteer';
 
 export type SubmissionType = 'victim_report' | 'volunteer_application';
-
 export type SubmissionStatus = 'New' | 'In-Progress' | 'Resolved';
+
+// ── DB row interfaces ──
+
+export interface Role {
+  id: number;
+  name: RoleName;
+}
 
 export interface Profile {
   id: string;
   full_name: string;
   email: string;
-  role: UserRole;
-  region: string | null;
+  mobile_no: string | null;
+  gender: string | null;
+  dob: string | null;
+  residence_district: string | null;
+  current_region_or_college: string | null;
+  profile_photo_url: string | null;
+  referred_by: string | null;
+  joined_on: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserRole {
+  id: number;
+  user_id: string;
+  role_id: number;
+  granted_at: string;
+  granted_by: string | null;
+}
+
+export interface CareerHistory {
+  id: number;
+  user_id: string;
+  role_name: string;
+  start_date: string;
+  end_date: string | null;
+  key_achievements: string | null;
+  summary_of_work: string | null;
+}
+
+export interface Blog {
+  id: string;
+  author_id: string;
+  title: string;
+  slug: string;
+  content: string;
+  cover_image: string | null;
+  published: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -22,32 +71,14 @@ export interface Submission {
   email: string;
   phone: string | null;
   region: string | null;
-  // Location
-  pincode: string | null;
-  state: string | null;
-  district: string | null;
-  // Volunteer fields
-  serve_role: string | null;
-  volunteer_scope: string | null;
-  serve_area_state: string | null;
-  serve_area_district: string | null;
-  serve_area_pincode: string | null;
-  college: string | null;
-  skills: string | null;
-  about_self: string | null;
-  // Victim fields
   incident_date: string | null;
   incident_description: string | null;
   perpetrator_info: string | null;
   urgency_level: 'low' | 'medium' | 'high' | 'critical' | null;
-  // Legacy volunteer fields
   university: string | null;
+  skills: string | null;
   motivation: string | null;
   availability: string | null;
-  // Meta
-  recommended_by: string | null;
-  dob: string | null;
-  consent: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -61,3 +92,10 @@ export interface AuditLog {
   details: Record<string, unknown>;
   created_at: string;
 }
+
+// ── Composite helpers used in the UI ──
+
+export interface ProfileWithRoles extends Profile {
+  roles: RoleName[];
+}
+

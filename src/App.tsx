@@ -12,9 +12,14 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/admin/Login";
 import ForgotPassword from "./pages/admin/ForgotPassword";
 import Dashboard from "./pages/admin/Dashboard";
-import UsersPage from "./pages/admin/Users";
+import MembersPage from "./pages/admin/Members";
 import SubmissionsPage from "./pages/admin/Submissions";
 import AuditLogsPage from "./pages/admin/AuditLogs";
+import CareerHistoryPage from "./pages/admin/CareerHistory";
+import BlogsPage from "./pages/admin/Blogs";
+import MyImpactPage from "./pages/admin/MyImpact";
+import ProfilePage from "./pages/admin/Profile";
+import SettingsPage from "./pages/admin/Settings";
 
 const queryClient = new QueryClient();
 
@@ -42,8 +47,20 @@ const App = () => (
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="users" element={<UsersPage />} />
+              <Route path="members" element={<MembersPage />} />
               <Route path="submissions" element={<SubmissionsPage />} />
+              <Route path="career-history" element={<CareerHistoryPage />} />
+              <Route path="blogs" element={<BlogsPage />} />
+              <Route path="my-impact" element={<MyImpactPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route
+                path="settings"
+                element={
+                  <ProtectedRoute allowedRoles={["President"]}>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="audit-logs"
                 element={

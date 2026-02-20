@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn, getInitials } from '@/lib/utils';
+import type { RoleName } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,24 +22,58 @@ import {
   X,
   ChevronDown,
   Home,
+  BookOpen,
+  History,
+  Heart,
+  Settings,
+  UserCircle,
+  type LucideIcon,
 } from 'lucide-react';
 
-const sidebarLinks = [
-  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/admin/users', label: 'Users', icon: Users, end: false },
-  { to: '/admin/submissions', label: 'Submissions', icon: FileText, end: false },
-  { to: '/admin/audit-logs', label: 'Audit Logs', icon: ScrollText, end: false },
+interface SideLink {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+  roles: RoleName[]; // empty = visible to ALL authenticated
+}
+
+const allLinks: SideLink[] = [
+  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: [] },
+  {
+    to: '/admin/members',
+    label: 'Members',
+    icon: Users,
+    roles: ['President', 'Technical Head', 'Content Head', 'Regional Head', 'University President'],
+  },
+  { to: '/admin/submissions', label: 'Submissions', icon: FileText, roles: ['President', 'Regional Head', 'University President'] },
+  { to: '/admin/career-history', label: 'Career Tree', icon: History, roles: ['President', 'Technical Head', 'Content Head'] },
+  { to: '/admin/blogs', label: 'Blogs', icon: BookOpen, roles: ['President', 'Content Head'] },
+  { to: '/admin/my-impact', label: 'My Impact', icon: Heart, roles: ['Volunteer'] },
+  { to: '/admin/audit-logs', label: 'Audit Logs', icon: ScrollText, roles: ['President'] },
+  { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['President'] },
 ];
 
 export default function AdminLayout() {
-  const { profile, signOut } = useAuth();
+  const { profile, roles, signOut } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const visibleLinks = useMemo(
+    () =>
+      allLinks.filter((l) => {
+        if (l.roles.length === 0) return true; // visible to everyone
+        return l.roles.some((r) => roles.includes(r));
+      }),
+    [roles]
+  );
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
+
+  const roleLabel = roles.length > 0 ? roles.join(', ') : 'Member';
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -75,7 +110,7 @@ export default function AdminLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-3">
-          {sidebarLinks.map((link) => (
+          {visibleLinks.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
@@ -135,7 +170,7 @@ export default function AdminLayout() {
                 </Avatar>
                 <div className="hidden text-left md:block">
                   <p className="text-sm font-medium">{profile?.full_name}</p>
-                  <p className="text-xs text-gray-500">{profile?.role}</p>
+                  <p className="text-xs text-gray-500">{roleLabel}</p>
                 </div>
                 <ChevronDown className="h-4 w-4 text-gray-400" />
               </Button>
@@ -143,6 +178,11 @@ export default function AdminLayout() {
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem className="text-xs text-gray-500">
                 {profile?.email}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/admin/profile')}>
+                <UserCircle className="mr-2 h-4 w-4" />
+                My Profile
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-red-600">

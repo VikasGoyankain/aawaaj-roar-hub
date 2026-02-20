@@ -25,7 +25,7 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const { profile } = useAuth();
+  const { profile, hasRole } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalSubmissions: 0,
@@ -49,8 +49,8 @@ export default function Dashboard() {
 
         // Fetch submissions
         let submissionQuery = supabase.from('submissions').select('*');
-        if (profile?.role === 'Regional Head' || profile?.role === 'University President') {
-          submissionQuery = submissionQuery.eq('region', profile.region);
+        if (hasRole(['Regional Head', 'University President']) && !hasRole(['President'])) {
+          submissionQuery = submissionQuery.eq('region', profile?.residence_district ?? '');
         }
         const { data: submissions } = await submissionQuery;
 
@@ -72,14 +72,14 @@ export default function Dashboard() {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(5);
-        if (profile?.role === 'Regional Head' || profile?.role === 'University President') {
-          recentQuery = recentQuery.eq('region', profile.region);
+        if (hasRole(['Regional Head', 'University President']) && !hasRole(['President'])) {
+          recentQuery = recentQuery.eq('region', profile?.residence_district ?? '');
         }
         const { data: recent } = await recentQuery;
         setRecentSubmissions((recent as Submission[]) || []);
 
         // Recent audit logs (President only)
-        if (profile?.role === 'President') {
+        if (hasRole(['President'])) {
           const { data: logs } = await supabase
             .from('audit_logs')
             .select('*')
@@ -110,7 +110,7 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
-  }, [profile]);
+  }, [profile, hasRole]);
 
   if (loading) {
     return (
@@ -237,7 +237,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Recent Audit Logs (President only) */}
-        {profile?.role === 'President' && (
+        {hasRole(['President']) && (
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Recent Activity</CardTitle>

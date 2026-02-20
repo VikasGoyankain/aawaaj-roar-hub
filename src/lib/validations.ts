@@ -4,43 +4,39 @@ export const loginSchema = z.object({
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
-
 export type LoginFormData = z.infer<typeof loginSchema>;
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
 });
-
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
-export const addUserSchema = z.object({
-  email: z
-    .string()
-    .email('Invalid email address')
-    .min(1, 'Email is required')
-    .max(255, 'Email must be less than 255 characters'),
-  full_name: z
-    .string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(100, 'Name must be less than 100 characters')
-    .regex(/^[a-zA-Z\s'-]+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes'),
-  role: z.enum(['President', 'Regional Head', 'University President', 'Volunteer'], {
-    required_error: 'Role is required',
-  }),
-  region: z.string().optional().nullable(),
+export const ALL_ROLES = [
+  'President',
+  'Technical Head',
+  'Content Head',
+  'Regional Head',
+  'University President',
+  'Volunteer',
+] as const;
+
+export const addMemberSchema = z.object({
+  email: z.string().email('Invalid email').min(1, 'Email is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  full_name: z.string().min(2, 'Name required').max(100),
+  mobile_no: z.string().optional(),
+  gender: z.enum(['Male', 'Female', 'Non-Binary', 'Prefer not to say']).optional(),
+  residence_district: z.string().optional(),
+  current_region_or_college: z.string().optional(),
+  roles: z.array(z.enum(ALL_ROLES)).min(1, 'At least one role is required'),
 });
+export type AddMemberFormData = z.infer<typeof addMemberSchema>;
 
-export const addUserSchemaRefined = addUserSchema.refine(
-  (data) => {
-    if (data.role === 'Regional Head' || data.role === 'University President') {
-      return data.region && data.region.length > 0;
-    }
-    return true;
-  },
-  {
-    message: 'Region is required for Regional Head and University President roles',
-    path: ['region'],
-  }
-);
-
-export type AddUserFormData = z.infer<typeof addUserSchema>;
+export const blogSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  slug: z.string().min(3).regex(/^[a-z0-9-]+$/, 'Slug: lowercase letters, numbers, hyphens only'),
+  content: z.string().min(10, 'Content too short'),
+  cover_image: z.string().url().optional().or(z.literal('')),
+  published: z.boolean(),
+});
+export type BlogFormData = z.infer<typeof blogSchema>;
