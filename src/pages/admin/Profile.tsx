@@ -144,6 +144,7 @@ export default function ProfilePage() {
     profile_photo_url: '',
     skills: [] as string[],
     about_self: '',
+    tagline: '',
     pincode: '',
     state: '',
     district: '',
@@ -171,6 +172,7 @@ export default function ProfilePage() {
         profile_photo_url: profile.profile_photo_url || '',
         skills: profile.skills ? profile.skills.split(', ').filter(Boolean) : [],
         about_self: profile.about_self || '',
+        tagline: profile.tagline || '',
         pincode: profile.pincode || '',
         state: profile.state || '',
         district: profile.residence_district || '',
@@ -220,6 +222,7 @@ export default function ProfilePage() {
           profile_photo_url: form.profile_photo_url || null,
           skills: form.skills.length > 0 ? form.skills.join(', ') : null,
           about_self: form.about_self.trim() || null,
+          tagline: form.tagline.trim() || null,
         })
         .eq('id', user!.id);
 
@@ -485,7 +488,7 @@ export default function ProfilePage() {
           {/* Skills & Bio */}
           <div>
             <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-              <Sparkles className="h-4 w-4" /> Skills & Bio
+              <Sparkles className="h-4 w-4" /> Skills, Bio & Tagline
             </h4>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -493,13 +496,25 @@ export default function ProfilePage() {
                 <SkillsPicker selected={form.skills} onChange={(v) => setForm({ ...form, skills: v })} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About Me / Bio</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About Me</Label>
+                <p className="text-xs text-muted-foreground">Auto-populated from your volunteer application or registration details. You can update it anytime.</p>
                 <Textarea
                   value={form.about_self}
                   onChange={(e) => setForm({ ...form, about_self: e.target.value })}
                   placeholder="Tell us a bit about yourself, your interests, and what you bring to the movement."
                   rows={3}
                   className="resize-none rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tagline</Label>
+                <p className="text-xs text-muted-foreground">A short sentence that defines you — shown on your public profile.</p>
+                <Input
+                  value={form.tagline}
+                  onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+                  placeholder="e.g. 'Youth activist fighting for justice in Rajasthan'"
+                  className="rounded-xl"
+                  maxLength={120}
                 />
               </div>
             </div>

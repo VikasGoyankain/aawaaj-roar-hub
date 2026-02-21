@@ -155,6 +155,25 @@ export default function SubmissionsPage() {
         .eq('id', selectedSubmission.id);
       if (error) throw error;
 
+      // ── Step 1b: Resolve recommender UUID from name ──────────────────────
+      // submissions.recommended_by is a plain-text name; we look up the referrer's
+      // profile UUID so we can populate profiles.referred_by for tracking.
+      let referredByUuid: string | null = null;
+      const recommenderName = memberForm.recommended_by.trim();
+      if (recommenderName) {
+        const { data: recMatch } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('full_name', recommenderName)
+          .limit(1)
+          .maybeSingle();
+        if (recMatch) {
+          referredByUuid = recMatch.id;
+        } else {
+          console.warn('[handleMakeMember] Could not resolve recommender UUID for name:', recommenderName);
+        }
+      }
+
       // ── Step 2: Create the Supabase auth account via invite ──
       const roleName = serveRoleToRoleName[memberForm.serve_role] || 'Volunteer';
       let newUserId: string;
@@ -173,6 +192,7 @@ export default function SubmissionsPage() {
             current_region_or_college: memberForm.college.trim() || null,
             state: memberForm.state.trim() || null,
             pincode: memberForm.pincode.trim() || null,
+            referred_by: referredByUuid,
           },
         }
       );
@@ -195,6 +215,7 @@ export default function SubmissionsPage() {
             current_region_or_college: memberForm.college.trim() || null,
             state: memberForm.state.trim() || null,
             pincode: memberForm.pincode.trim() || null,
+            referred_by: referredByUuid,
           },
         });
         if (createError) throw new Error(`${createError.message} (Supabase error — check dashboard logs)`);
@@ -220,7 +241,8 @@ export default function SubmissionsPage() {
         current_region_or_college: memberForm.college.trim() || null,
         skills: memberForm.skills.trim() || null,
         about_self: memberForm.about_self.trim() || null,
-        recommended_by_name: memberForm.recommended_by.trim() || null,
+        recommended_by_name: recommenderName || null,
+        referred_by: referredByUuid,
       }, { onConflict: 'id' });
       if (profileError) console.warn('[handleMakeMember] profile upsert warning:', profileError);
 

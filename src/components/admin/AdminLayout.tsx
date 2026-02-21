@@ -29,6 +29,7 @@ import {
   UserCircle,
   Shield,
   LayoutTemplate,
+  GitBranch,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -51,6 +52,7 @@ const allLinks: SideLink[] = [
   { to: '/admin/submissions', label: 'Submissions', icon: FileText, roles: ['President', 'Technical Head', 'Regional Head', 'University President'] },
   { to: '/admin/career-history', label: 'Career Tree', icon: History, roles: ['President', 'Technical Head', 'Content Head'] },
   { to: '/admin/blogs', label: 'Blogs', icon: BookOpen, roles: ['President', 'Technical Head', 'Content Head'] },
+  { to: '/admin/referrals', label: 'Referrals', icon: GitBranch, roles: ['President', 'Technical Head', 'Regional Head'] },
   { to: '/admin/my-impact', label: 'My Impact', icon: Heart, roles: ['Volunteer'] },
   { to: '/admin/audit-logs', label: 'Audit Logs', icon: ScrollText, roles: ['President', 'Technical Head'] },
   { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['President', 'Technical Head'] },

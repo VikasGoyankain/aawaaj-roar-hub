@@ -3,24 +3,6 @@ import logoSvg from "@/assets/logo aawaaj.svg";
 import { supabase } from "@/lib/supabase";
 import type { SocialLink, ContactLeader, QuickLink } from "@/pages/admin/FooterSettings";
 
-// ── Default values (used as fallback if DB is unavailable) ──
-const DEFAULT_SOCIAL: SocialLink[] = [
-  { platform: "Instagram", url: "https://instagram.com/aawaaj_movement", icon: "instagram" },
-  { platform: "LinkedIn",  url: "https://linkedin.com",                  icon: "linkedin"  },
-  { platform: "Twitter",   url: "https://twitter.com",                   icon: "twitter"   },
-];
-const DEFAULT_CONTACTS: ContactLeader[] = [
-  { name: "Hardik Gajraj",      title: "Founder & National Head",      email: "hardik@aawaaj.org"  },
-  { name: "Kushal Manish Jain", title: "Co-Founder & Operations Head", email: "kushal@aawaaj.org"  },
-];
-const DEFAULT_LINKS: QuickLink[] = [
-  { label: "About the Movement", href: "#about"                   },
-  { label: "Our Model",          href: "#model"                   },
-  { label: "Areas of Focus",     href: "#focus"                   },
-  { label: "Leadership",         href: "#leadership"              },
-  { label: "Join Us",            href: "https://forms.google.com" },
-];
-
 // ── Social icon SVGs ──────────────────────────────────────────
 const SocialIcon = ({ name }: { name: string }) => {
   switch (name) {
@@ -64,9 +46,9 @@ const SocialIcon = ({ name }: { name: string }) => {
 };
 
 const FooterSection = () => {
-  const [socialLinks,       setSocialLinks]       = useState<SocialLink[]>(DEFAULT_SOCIAL);
-  const [contactLeadership, setContactLeadership] = useState<ContactLeader[]>(DEFAULT_CONTACTS);
-  const [quickLinks,        setQuickLinks]        = useState<QuickLink[]>(DEFAULT_LINKS);
+  const [socialLinks,       setSocialLinks]       = useState<SocialLink[]>([]);
+  const [contactLeadership, setContactLeadership] = useState<ContactLeader[]>([]);
+  const [quickLinks,        setQuickLinks]        = useState<QuickLink[]>([]);
 
   useEffect(() => {
     supabase

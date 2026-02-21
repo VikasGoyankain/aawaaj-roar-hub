@@ -30,6 +30,7 @@ export interface Profile {
   referred_by: string | null;
   skills: string | null;
   about_self: string | null;
+  tagline: string | null;
   recommended_by_name: string | null;
   state: string | null;
   pincode: string | null;

@@ -2,16 +2,26 @@ import { useEffect, useState, useCallback } from 'react';
 import SEO from '@/components/SEO';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getInitials } from '@/lib/utils';
 import type { CareerHistory } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { Heart, Users, Award, Clock, TrendingUp, Star, Sparkles } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Heart, Users, Award, Clock, TrendingUp, Star, Sparkles, GitBranch } from 'lucide-react';
+
+interface ReferredMember {
+  id: string;
+  full_name: string;
+  profile_photo_url: string | null;
+  joined_on: string;
+  role: string;
+}
 
 export default function MyImpactPage() {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [careerEntries, setCareerEntries] = useState<CareerHistory[]>([]);
   const [referralCount, setReferralCount] = useState(0);
+  const [referredMembers, setReferredMembers] = useState<ReferredMember[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -25,12 +35,34 @@ export default function MyImpactPage() {
         .order('start_date', { ascending: false }),
       supabase
         .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('referred_by', user.id),
+        .select('id, full_name, profile_photo_url, joined_on')
+        .eq('referred_by', user.id)
+        .order('joined_on', { ascending: false }),
     ]);
 
     setCareerEntries((careerRes.data || []) as CareerHistory[]);
-    setReferralCount(referralRes.count || 0);
+    const referredData = (referralRes.data || []) as { id: string; full_name: string; profile_photo_url: string | null; joined_on: string }[];
+    setReferralCount(referredData.length);
+
+    // Fetch roles for referred members
+    if (referredData.length > 0) {
+      const ids = referredData.map((r) => r.id);
+      const { data: roleRows } = await supabase
+        .from('user_roles')
+        .select('user_id, roles(name)')
+        .in('user_id', ids);
+      const roleMap = new Map<string, string>();
+      (roleRows || []).forEach((row: { user_id: string; roles: { name: string }[] | { name: string } | null }) => {
+        const roleName = Array.isArray(row.roles) ? row.roles[0]?.name : row.roles?.name;
+        if (roleName && !roleMap.has(row.user_id)) roleMap.set(row.user_id, roleName);
+      });
+      setReferredMembers(
+        referredData.map((r) => ({ ...r, role: roleMap.get(r.id) || 'Volunteer' }))
+      );
+    } else {
+      setReferredMembers([]);
+    }
+
     setLoading(false);
   }, [user]);
 
@@ -179,6 +211,59 @@ export default function MyImpactPage() {
                       {entry.key_achievements}
                     </p>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* People You've Referred */}
+      <div className="rounded-2xl border border-border bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border px-6 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
+            <GitBranch className="h-4 w-4 text-blue-600" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">
+            People You've Referred
+            {referralCount > 0 && (
+              <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                {referralCount}
+              </span>
+            )}
+          </h3>
+        </div>
+        <div className="p-4">
+          {referredMembers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Users className="mb-2 h-8 w-8 opacity-30" />
+              <p className="text-sm">You haven't referred anyone yet.</p>
+              <p className="mt-1 text-xs text-center max-w-xs">
+                When someone joins through your recommendation, they'll appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {referredMembers.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/10 px-4 py-2.5"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarImage src={m.profile_photo_url || undefined} />
+                      <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                        {getInitials(m.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="truncate text-sm font-medium text-foreground">{m.full_name}</span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3 pl-4">
+                    <Badge variant="outline" className="text-xs">{m.role}</Badge>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      Joined {formatDate(m.joined_on)}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

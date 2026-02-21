@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import SEO from '@/components/SEO';
-import { Search, X, MapPin, Calendar, Users, BookOpen, ExternalLink, ChevronRight, Shield, Award, Star } from 'lucide-react';
+import { Search, X, MapPin, Calendar, Users, BookOpen, ExternalLink, ChevronRight, Shield, Award, Star, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,23 +21,14 @@ import {
 import { getInitials } from '@/lib/utils';
 import Navbar from '@/components/Navbar';
 import FooterSection from '@/components/FooterSection';
+import { supabase } from '@/lib/supabase';
+import type { Profile, Blog, CareerHistory } from '@/lib/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type RoleCategory =
-  | 'President'
-  | 'Technical Head'
-  | 'Content Head'
-  | 'Regional Head'
-  | 'University President'
-  | 'Legal Wing'
-  | 'Research Wing'
-  | 'Media Wing'
-  | 'Volunteer';
-
 interface TeamMember {
   id: string;
   name: string;
-  role: RoleCategory;
+  role: string;
   region: string;
   state: string;
   photo?: string;
@@ -53,234 +44,28 @@ interface TeamMember {
   seniority: number; // lower = more senior
 }
 
-// ── Mock data (replace with Supabase fetch when ready) ──────────────────────
-const TEAM_MEMBERS: TeamMember[] = [
-  {
-    id: '1',
-    name: 'Hardik Gajraj',
-    role: 'President',
-    region: 'National HQ',
-    state: 'Rajasthan',
-    missionQuote: 'Every voice matters — together we become the roar India cannot ignore.',
-    joinedOn: '2023-01-15',
-    email: 'hardik@aawaaj.org',
-    mobile: '+91 98765 43210',
-    bio: 'Founder and President of Aawaaj Movement. Legal thinker, grassroots organizer, and relentless advocate for youth-led transparency in India.',
-    referralCount: 47,
-    skills: ['Legal Research', 'Public Speaking', 'Ground Mobilization', 'Strategic Leadership'],
-    careerHistory: [
-      { title: 'Aawaaj Movement Founded', date: 'Jan 2023', description: 'Launched the movement to give marginalized voices a coordinated platform.' },
-      { title: 'First District Verification Drive', date: 'Apr 2023', description: 'Led a fact-finding mission across 3 districts of Rajasthan.' },
-      { title: 'National Youth Conclave Speaker', date: 'Aug 2023', description: 'Keynote address on youth leadership and legal accountability.' },
-    ],
-    blogs: [
-      { title: 'Why Youth Must Lead the Legal Reform Charge', url: '#', date: 'Mar 2024' },
-      { title: 'The Digital Shield: How Verified Reports Change Everything', url: '#', date: 'Nov 2023' },
-    ],
-    seniority: 1,
-  },
-  {
-    id: '2',
-    name: 'Kushal Manish Jain',
-    role: 'Technical Head',
-    region: 'National HQ',
-    state: 'Gujarat',
-    missionQuote: 'Technology is the megaphone; truth is the message.',
-    joinedOn: '2023-02-01',
-    email: 'kushal@aawaaj.org',
-    mobile: '+91 97654 32109',
-    bio: 'Technical Head driving Aawaaj\'s digital infrastructure — from the Digital Shield platform to secure data pipelines that protect activist identities.',
-    referralCount: 29,
-    skills: ['Full-Stack Development', 'Cybersecurity', 'Data Analysis', 'UI/UX Design'],
-    careerHistory: [
-      { title: 'Digital Shield Platform Launched', date: 'Mar 2023', description: 'Built the core reporting and verification platform from scratch.' },
-      { title: 'Secure Communication Protocol', date: 'Jul 2023', description: 'Implemented end-to-end encrypted channels for ground reporters.' },
-    ],
-    blogs: [
-      { title: 'Building a Digital Shield for India\'s Activists', url: '#', date: 'Jan 2024' },
-    ],
-    seniority: 2,
-  },
-  {
-    id: '3',
-    name: 'Priya Sharma',
-    role: 'Content Head',
-    region: 'National HQ',
-    state: 'Delhi',
-    missionQuote: 'A well-crafted story is the most powerful petition ever filed.',
-    joinedOn: '2023-03-10',
-    email: 'priya@aawaaj.org',
-    mobile: '+91 96543 21098',
-    bio: 'Content Head curating campaigns, articles, and social narratives that turn ground reports into high-impact accountability stories.',
-    referralCount: 18,
-    skills: ['Content Strategy', 'Video Editing', 'Journalism', 'Social Media'],
-    careerHistory: [
-      { title: 'Aawaaj Social Media Strategy', date: 'Apr 2023', description: 'Grew @aawaaj_movement to 10K followers in under 6 months.' },
-    ],
-    blogs: [
-      { title: 'How We Turn Reports into National Headlines', url: '#', date: 'Feb 2024' },
-    ],
-    seniority: 3,
-  },
-  {
-    id: '4',
-    name: 'Arjun Mehra',
-    role: 'Regional Head',
-    region: 'Jaipur',
-    state: 'Rajasthan',
-    missionQuote: 'Every district deserves a fearless voice. I am Jaipur\'s.',
-    joinedOn: '2023-04-20',
-    email: 'arjun@aawaaj.org',
-    mobile: '+91 95432 10987',
-    bio: 'District CEO of Jaipur, leading ground verification drives, coordinating local volunteers, and ensuring facts reach the national platform.',
-    referralCount: 12,
-    skills: ['Ground Mobilization', 'Fact-Finding', 'Community Organizing', 'Reporting'],
-    careerHistory: [
-      { title: 'Jaipur Sanitation Verification Drive', date: 'Jun 2023', description: 'Led a 5-day field investigation covering 20 wards.' },
-      { title: 'Youth Council Formation', date: 'Sep 2023', description: 'Formed a 30-member youth council for sustained district coverage.' },
-    ],
-    blogs: [],
-    seniority: 4,
-  },
-  {
-    id: '5',
-    name: 'Ananya Verma',
-    role: 'University President',
-    region: 'University of Delhi',
-    state: 'Delhi',
-    missionQuote: 'Campus is not a bubble — it is where the revolution learns to speak.',
-    joinedOn: '2023-05-15',
-    email: 'ananya@aawaaj.org',
-    mobile: '+91 94321 09876',
-    bio: 'University President at DU, mobilizing students to become legal observers, content creators, and grassroots reporters for Aawaaj.',
-    referralCount: 21,
-    skills: ['Student Organizing', 'Researching', 'Legal Drafting', 'Public Relations'],
-    careerHistory: [
-      { title: 'DU Legal Observer Program', date: 'Aug 2023', description: 'Trained 50 students as certified legal observers for protests and hearings.' },
-    ],
-    blogs: [
-      { title: 'Why DU Students Are Joining Aawaaj', url: '#', date: 'Oct 2023' },
-    ],
-    seniority: 5,
-  },
-  {
-    id: '6',
-    name: 'Vikram Singh',
-    role: 'Legal Wing',
-    region: 'Jodhpur',
-    state: 'Rajasthan',
-    missionQuote: 'The law is a weapon — and I\'ve learned to wield it for the powerless.',
-    joinedOn: '2023-06-01',
-    email: 'vikram@aawaaj.org',
-    mobile: '+91 93210 98765',
-    bio: 'Legal Wing Lead providing pro-bono counsel, drafting RTI applications, and advising movement leaders on constitutional rights.',
-    referralCount: 8,
-    skills: ['Constitutional Law', 'RTI Filing', 'Legal Research', 'Advocacy'],
-    careerHistory: [
-      { title: 'RTI Campaign — Water Rights', date: 'Oct 2023', description: 'Filed 120 RTIs across Rajasthan on rural water allocation.' },
-    ],
-    blogs: [
-      { title: 'RTI as a Tool for Transparency', url: '#', date: 'Dec 2023' },
-    ],
-    seniority: 6,
-  },
-  {
-    id: '7',
-    name: 'Meera Nair',
-    role: 'Research Wing',
-    region: 'Thiruvananthapuram',
-    state: 'Kerala',
-    missionQuote: 'Data is the currency of accountability — I mine it for justice.',
-    joinedOn: '2023-07-10',
-    email: 'meera@aawaaj.org',
-    mobile: '+91 92109 87654',
-    bio: 'Research Wing Lead producing evidence-based reports, policy analyses, and ground truth documentation that anchors Aawaaj campaigns.',
-    referralCount: 6,
-    skills: ['Data Analysis', 'Policy Research', 'Report Writing', 'Statistics'],
-    careerHistory: [
-      { title: 'Education Equity Report — Kerala', date: 'Nov 2023', description: 'Published a 40-page report on school infrastructure gaps in tribal districts.' },
-    ],
-    blogs: [
-      { title: 'Numbers Don\'t Lie: Education Data Across India', url: '#', date: 'Jan 2024' },
-    ],
-    seniority: 7,
-  },
-  {
-    id: '8',
-    name: 'Rahul Kapoor',
-    role: 'Media Wing',
-    region: 'Mumbai',
-    state: 'Maharashtra',
-    missionQuote: 'I don\'t just record the movement — I amplify it across every screen.',
-    joinedOn: '2023-08-05',
-    email: 'rahul@aawaaj.org',
-    mobile: '+91 91098 76543',
-    bio: 'Media Wing Lead producing video documentaries, photo essays, and press packages that carry Aawaaj\'s stories to national audiences.',
-    referralCount: 15,
-    skills: ['Video Editing', 'Photography', 'Videography', 'Broadcast Journalism'],
-    careerHistory: [
-      { title: 'Documentary: Voices from the Margins', date: 'Dec 2023', description: 'Produced a 20-minute documentary screened at youth film festivals.' },
-    ],
-    blogs: [],
-    seniority: 8,
-  },
-  {
-    id: '9',
-    name: 'Divya Patel',
-    role: 'Regional Head',
-    region: 'Ahmedabad',
-    state: 'Gujarat',
-    missionQuote: 'Gujarat\'s youth is awake — I\'m here to organize that energy.',
-    joinedOn: '2023-09-01',
-    email: 'divya@aawaaj.org',
-    mobile: '+91 90987 65432',
-    bio: 'Regional Head for Ahmedabad, building a district volunteer network and overseeing fact-finding missions in industrial zones.',
-    referralCount: 10,
-    skills: ['Ground Mobilization', 'Community Building', 'Event Management', 'Hindi & Gujarati Writing'],
-    careerHistory: [
-      { title: 'Industrial Zone Fact-Finding', date: 'Jan 2024', description: 'Led an investigation into labor violations in the textile industrial corridor.' },
-    ],
-    blogs: [],
-    seniority: 9,
-  },
-  {
-    id: '10',
-    name: 'Aditya Kumar',
-    role: 'Volunteer',
-    region: 'Patna',
-    state: 'Bihar',
-    missionQuote: 'Every action — no matter how small — is a brick in the wall of change.',
-    joinedOn: '2024-01-20',
-    email: 'aditya@aawaaj.org',
-    mobile: '+91 89876 54321',
-    bio: 'Aspiring Youth volunteer from Patna, contributing to Aawaaj through social media outreach and local campus organizing.',
-    referralCount: 3,
-    skills: ['Aspiring Youth', 'Social Media', 'Researching'],
-    careerHistory: [],
-    blogs: [],
-    seniority: 10,
-  },
-];
-
 // ── Role display config ────────────────────────────────────────────────────
-const roleConfig: Record<RoleCategory, { label: string; color: string; tier: number }> = {
-  President:           { label: 'President',           color: 'bg-amber-500/20 text-amber-700 border-amber-400/40',       tier: 1 },
-  'Technical Head':    { label: 'Technical Head',      color: 'bg-indigo-500/20 text-indigo-700 border-indigo-400/40',    tier: 2 },
-  'Content Head':      { label: 'Content Head',        color: 'bg-pink-500/20 text-pink-700 border-pink-400/40',          tier: 2 },
-  'Regional Head':     { label: 'Regional Head',       color: 'bg-blue-500/20 text-blue-700 border-blue-400/40',          tier: 3 },
-  'University President': { label: 'University President', color: 'bg-cyan-500/20 text-cyan-700 border-cyan-400/40',      tier: 3 },
-  'Legal Wing':        { label: 'Legal Wing',          color: 'bg-violet-500/20 text-violet-700 border-violet-400/40',    tier: 4 },
-  'Research Wing':     { label: 'Research Wing',       color: 'bg-teal-500/20 text-teal-700 border-teal-400/40',          tier: 4 },
-  'Media Wing':        { label: 'Media Wing',          color: 'bg-orange-500/20 text-orange-700 border-orange-400/40',    tier: 4 },
-  Volunteer:           { label: 'Volunteer',           color: 'bg-gray-500/20 text-gray-600 border-gray-400/40',          tier: 5 },
+const roleConfig: Record<string, { label: string; color: string; tier: number }> = {
+  President:              { label: 'President',            color: 'bg-amber-500/20 text-amber-700 border-amber-400/40',    tier: 1 },
+  'Technical Head':       { label: 'Technical Head',       color: 'bg-indigo-500/20 text-indigo-700 border-indigo-400/40', tier: 2 },
+  'Content Head':         { label: 'Content Head',         color: 'bg-pink-500/20 text-pink-700 border-pink-400/40',       tier: 2 },
+  'Regional Head':        { label: 'Regional Head',        color: 'bg-blue-500/20 text-blue-700 border-blue-400/40',       tier: 3 },
+  'University President': { label: 'University President', color: 'bg-cyan-500/20 text-cyan-700 border-cyan-400/40',       tier: 3 },
+  Volunteer:              { label: 'Volunteer',            color: 'bg-gray-500/20 text-gray-600 border-gray-400/40',       tier: 5 },
 };
+
+const DEFAULT_ROLE_CFG = { label: 'Member', color: 'bg-gray-500/20 text-gray-600 border-gray-400/40', tier: 5 };
+
+function getRoleConfig(role: string) {
+  return roleConfig[role] || { ...DEFAULT_ROLE_CFG, label: role };
+}
 
 const SORT_OPTIONS = ['Seniority', 'Recently Joined', 'Most Referrals'] as const;
 type SortOption = typeof SORT_OPTIONS[number];
 
 // ── MemberCard ─────────────────────────────────────────────────────────────
 function MemberCard({ member, onClick }: { member: TeamMember; onClick: () => void }) {
-  const cfg = roleConfig[member.role];
+  const cfg = getRoleConfig(member.role);
   return (
     <button
       onClick={onClick}
@@ -352,7 +137,7 @@ function MemberCard({ member, onClick }: { member: TeamMember; onClick: () => vo
 
 // ── MemberProfilePanel ─────────────────────────────────────────────────────
 function MemberProfilePanel({ member, onClose }: { member: TeamMember; onClose: () => void }) {
-  const cfg = roleConfig[member.role];
+  const cfg = getRoleConfig(member.role);
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto p-0">
@@ -500,19 +285,129 @@ function MemberProfilePanel({ member, onClose }: { member: TeamMember; onClose: 
 
 // ── Main Page ──────────────────────────────────────────────────────────────
 export default function OurTeamPage() {
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [stateFilter, setStateFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('Seniority');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
 
+  // ── Fetch all team data from Supabase ──
+  useEffect(() => {
+    async function fetchTeamMembers() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [profilesRes, userRolesRes, careersRes, blogsRes] = await Promise.all([
+          supabase.from('profiles').select('*'),
+          supabase.from('user_roles').select('user_id, role_id, roles(name)'),
+          supabase.from('career_history').select('*').order('start_date', { ascending: false }),
+          supabase.from('blogs').select('*').eq('published', true).order('created_at', { ascending: false }),
+        ]);
+
+        if (profilesRes.error) throw profilesRes.error;
+
+        const profiles = (profilesRes.data || []) as Profile[];
+        const userRolesData = userRolesRes.data || [];
+        const careers = (careersRes.data || []) as CareerHistory[];
+        const blogs = (blogsRes.data || []) as Blog[];
+
+        // Build role map — pick the highest-priority (lowest tier) role per user
+        const roleMap = new Map<string, string>();
+        (userRolesData as any[]).forEach((r) => {
+          const roleName: string | undefined = Array.isArray(r.roles)
+            ? r.roles[0]?.name
+            : r.roles?.name;
+          if (!roleName) return;
+          const existing = roleMap.get(r.user_id);
+          const existingTier = existing ? (roleConfig[existing]?.tier ?? 99) : 99;
+          const newTier = roleConfig[roleName]?.tier ?? 99;
+          if (newTier < existingTier) {
+            roleMap.set(r.user_id, roleName);
+          }
+        });
+
+        // Build career-history map per user
+        const careerMap = new Map<string, { title: string; date: string; description: string }[]>();
+        careers.forEach((c) => {
+          const list = careerMap.get(c.user_id) || [];
+          list.push({
+            title: c.role_name,
+            date: new Date(c.start_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+            description: c.key_achievements || c.summary_of_work || '',
+          });
+          careerMap.set(c.user_id, list);
+        });
+
+        // Build blogs map per author
+        const blogMap = new Map<string, { title: string; url: string; date: string }[]>();
+        blogs.forEach((b) => {
+          const list = blogMap.get(b.author_id) || [];
+          list.push({
+            title: b.title,
+            url: `/blog/${b.slug}`,
+            date: new Date(b.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+          });
+          blogMap.set(b.author_id, list);
+        });
+
+        // Compute referral counts client-side
+        const referralCounts = new Map<string, number>();
+        profiles.forEach((p) => {
+          if (p.referred_by) {
+            referralCounts.set(p.referred_by, (referralCounts.get(p.referred_by) || 0) + 1);
+          }
+        });
+
+        // Assemble TeamMember objects
+        const members: TeamMember[] = profiles.map((p) => {
+          const role = roleMap.get(p.id) || 'Volunteer';
+          const tier = roleConfig[role]?.tier ?? 5;
+          return {
+            id: p.id,
+            name: p.full_name,
+            role,
+            region: p.current_region_or_college || p.residence_district || '—',
+            state: p.state || '—',
+            photo: p.profile_photo_url || undefined,
+            missionQuote: p.about_self || '',
+            joinedOn: p.joined_on,
+            email: p.email,
+            mobile: p.mobile_no || '',
+            bio: p.about_self || '',
+            referralCount: referralCounts.get(p.id) || 0,
+            skills: p.skills ? p.skills.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
+            careerHistory: careerMap.get(p.id) || [],
+            blogs: blogMap.get(p.id) || [],
+            seniority: tier,
+          };
+        });
+
+        // Default sort: seniority then join date
+        members.sort((a, b) => a.seniority - b.seniority || new Date(a.joinedOn).getTime() - new Date(b.joinedOn).getTime());
+
+        setTeamMembers(members);
+      } catch (err: any) {
+        console.error('Failed to fetch team members:', err);
+        setError(err.message || 'Failed to load team data');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTeamMembers();
+  }, []);
+
   const uniqueStates = useMemo(
-    () => [...new Set(TEAM_MEMBERS.map((m) => m.state))].sort(),
-    []
+    () => [...new Set(teamMembers.map((m) => m.state))].filter((s) => s !== '—').sort(),
+    [teamMembers]
   );
 
   const filteredMembers = useMemo(() => {
-    let list = TEAM_MEMBERS.filter((m) => {
+    let list = teamMembers.filter((m) => {
       const q = search.toLowerCase();
       if (
         q &&
@@ -531,7 +426,7 @@ export default function OurTeamPage() {
     else if (sortBy === 'Most Referrals') list = list.sort((a, b) => b.referralCount - a.referralCount);
 
     return list;
-  }, [search, roleFilter, stateFilter, sortBy]);
+  }, [teamMembers, search, roleFilter, stateFilter, sortBy]);
 
   const clearFilters = useCallback(() => {
     setSearch('');
@@ -541,6 +436,36 @@ export default function OurTeamPage() {
   }, []);
 
   const hasFilters = search || roleFilter !== 'all' || stateFilter !== 'all';
+
+  // ── Loading state ──
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center py-40 gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading team members…</p>
+        </div>
+        <FooterSection />
+      </div>
+    );
+  }
+
+  // ── Error state ──
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center py-40 gap-4">
+          <p className="text-4xl">⚠️</p>
+          <p className="text-lg font-semibold text-foreground">Something went wrong</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+        <FooterSection />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
@@ -570,8 +495,8 @@ export default function OurTeamPage() {
           </p>
           <div className="mt-8 flex justify-center gap-8 text-center">
             {[
-              { label: 'Members', value: TEAM_MEMBERS.length.toString() + '+' },
-              { label: 'Districts', value: '12+' },
+              { label: 'Members', value: teamMembers.length.toString() + '+' },
+              { label: 'Districts', value: [...new Set(teamMembers.map((m) => m.region))].length.toString() + '+' },
               { label: 'States', value: uniqueStates.length.toString() },
             ].map((stat) => (
               <div key={stat.label}>
@@ -610,7 +535,7 @@ export default function OurTeamPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                {(Object.keys(roleConfig) as RoleCategory[]).map((r) => (
+                {Object.keys(roleConfig).map((r) => (
                   <SelectItem key={r} value={r}>{roleConfig[r].label}</SelectItem>
                 ))}
               </SelectContent>
@@ -649,7 +574,7 @@ export default function OurTeamPage() {
           </div>
 
           <p className="text-xs text-muted-foreground mt-2">
-            Showing <span className="font-semibold text-foreground">{filteredMembers.length}</span> of {TEAM_MEMBERS.length} members
+            Showing <span className="font-semibold text-foreground">{filteredMembers.length}</span> of {teamMembers.length} members
           </p>
         </div>
       </section>

@@ -19,6 +19,7 @@ import AuditLogsPage from "./pages/admin/AuditLogs";
 import CareerHistoryPage from "./pages/admin/CareerHistory";
 import BlogsPage from "./pages/admin/Blogs";
 import MyImpactPage from "./pages/admin/MyImpact";
+import ReferralsPage from "./pages/admin/Referrals";
 import ProfilePage from "./pages/admin/Profile";
 import SettingsPage from "./pages/admin/Settings";
 import FooterSettingsPage from "./pages/admin/FooterSettings";
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="career-history" element={<CareerHistoryPage />} />
               <Route path="blogs" element={<BlogsPage />} />
               <Route path="my-impact" element={<MyImpactPage />} />
+              <Route path="referrals" element={<ReferralsPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route
                 path="settings"
