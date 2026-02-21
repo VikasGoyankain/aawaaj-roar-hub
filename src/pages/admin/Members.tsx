@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import SEO from '@/components/SEO';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -111,15 +111,39 @@ export default function MembersPage() {
     });
   }, []);
 
+  // ── Role-based access tier ──────────────────────────────────────────────
+  // 'global'     – President / Technical Head  → all members
+  // 'regional'   – Regional Head              → members of own region
+  // 'university' – University President        → volunteers of own college
+  // 'none'       – Content Head / Volunteer    → no access
+  const accessTier = useMemo(() => {
+    if (hasRole(['President', 'Technical Head'])) return 'global' as const;
+    if (hasRole('Regional Head'))                return 'regional' as const;
+    if (hasRole('University President'))         return 'university' as const;
+    return 'none' as const;
+  }, [hasRole]);
+
+  const pageTitle = useMemo(() => {
+    if (accessTier === 'global')     return 'All Members';
+    if (accessTier === 'regional')   return me?.current_region_or_college ? `Members of ${me.current_region_or_college}` : 'Members of My Region';
+    if (accessTier === 'university') return me?.current_region_or_college ? `Volunteers of ${me.current_region_or_college}` : 'Volunteers of My College';
+    return 'Members';
+  }, [accessTier, me]);
+
   const fetchMembers = useCallback(async () => {
     setLoading(true);
 
-    // Get profiles
+    // Get profiles — scoped by access tier
     let q = supabase
       .from('profiles')
       .select('*', { count: 'exact' })
       .order('joined_on', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    // Scope filter: Regional Head and University President only see their group
+    if ((accessTier === 'regional' || accessTier === 'university') && me?.current_region_or_college) {
+      q = q.eq('current_region_or_college', me.current_region_or_college);
+    }
 
     if (search) {
       q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,residence_district.ilike.%${search}%`);
@@ -153,14 +177,19 @@ export default function MembersPage() {
 
     let combined: ProfileWithRoles[] = pList.map((p) => ({ ...p, roles: roleMap.get(p.id) || [] }));
 
-    // Client-side role filter
+    // University President: only show Volunteers from their college
+    if (accessTier === 'university') {
+      combined = combined.filter((m) => m.roles.length === 0 || m.roles.includes('Volunteer'));
+    }
+
+    // Client-side role filter (only meaningful for global/regional views)
     if (roleFilter !== 'all') {
       combined = combined.filter((m) => m.roles.includes(roleFilter as RoleName));
     }
 
     setMembers(combined);
     setLoading(false);
-  }, [page, search, roleFilter]);
+  }, [page, search, roleFilter, accessTier, me?.current_region_or_college]);
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
   useEffect(() => { setPage(0); }, [search, roleFilter]);
@@ -394,6 +423,19 @@ export default function MembersPage() {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
+  // No-access guard: Content Head / Volunteer have no business here
+  if (accessTier === 'none') {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
+        <Shield className="h-12 w-12 text-muted-foreground/30" />
+        <h3 className="text-lg font-semibold text-foreground">Access Restricted</h3>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          Your current role does not include access to the Members directory.
+        </p>
+      </div>
+    );
+  }
+
   if (loading && members.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -404,13 +446,17 @@ export default function MembersPage() {
 
   return (
     <>
-      <SEO title="Members" description="Manage Aawaaj Movement team members, roles, and invitations." noIndex />
+      <SEO title={pageTitle} description="Manage Aawaaj Movement team members, roles, and invitations." noIndex />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#002D04]">Members Directory</h2>
-          <p className="text-sm text-gray-500">{totalCount} total members</p>
+          <h2 className="text-2xl font-bold text-[#002D04]">{pageTitle}</h2>
+          <p className="text-sm text-gray-500">
+            {accessTier === 'global' && `${totalCount} total members`}
+            {accessTier === 'regional' && `${totalCount} member${totalCount !== 1 ? 's' : ''} in your region`}
+            {accessTier === 'university' && `${totalCount} volunteer${totalCount !== 1 ? 's' : ''} in your college`}
+          </p>
         </div>
         {hasRole(['President', 'Technical Head']) && (
           <Button onClick={() => setAddOpen(true)} className="bg-[#F4C430] text-[#002D04] hover:bg-[#dab22a]">
@@ -425,15 +471,18 @@ export default function MembersPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input placeholder="Search name, email, district..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Filter by role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {/* Role filter — only available for global view; regional/university scope is already fixed */}
+        {accessTier === 'global' && (
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Filter by role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Table */}

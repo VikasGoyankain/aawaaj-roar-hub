@@ -62,7 +62,7 @@ interface NavGroup {
 const allLinks: SideLink[] = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: [], group: 'overview' },
   { to: '/admin/my-impact', label: 'My Impact', icon: Heart, roles: ['Volunteer'], group: 'overview' },
-  { to: '/admin/members', label: 'Members', icon: Users, roles: ['President', 'Technical Head', 'Content Head', 'Regional Head', 'University President'], group: 'people' },
+  { to: '/admin/members', label: 'Members', icon: Users, roles: ['President', 'Technical Head', 'Regional Head', 'University President'], group: 'people' },
   { to: '/admin/submissions', label: 'Submissions', icon: FileText, roles: ['President', 'Technical Head', 'Regional Head', 'University President'], group: 'people' },
   { to: '/admin/referrals', label: 'Referrals', icon: GitBranch, roles: ['President', 'Technical Head', 'Regional Head'], group: 'people' },
   { to: '/admin/career-history', label: 'Career Tree', icon: History, roles: ['President', 'Technical Head', 'Content Head'], group: 'content' },

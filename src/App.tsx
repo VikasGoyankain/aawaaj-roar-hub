@@ -53,7 +53,14 @@ const App = () => (
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="members" element={<MembersPage />} />
+              <Route
+                path="members"
+                element={
+                  <ProtectedRoute allowedRoles={['President', 'Technical Head', 'Regional Head', 'University President']}>
+                    <MembersPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="submissions" element={<SubmissionsPage />} />
               <Route path="career-history" element={<CareerHistoryPage />} />
               <Route path="blogs" element={<BlogsPage />} />

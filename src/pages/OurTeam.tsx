@@ -22,7 +22,6 @@ import { getInitials } from '@/lib/utils';
 import Navbar from '@/components/Navbar';
 import FooterSection from '@/components/FooterSection';
 import { supabase } from '@/lib/supabase';
-import type { Profile, Blog, CareerHistory } from '@/lib/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface TeamMember {
@@ -210,24 +209,30 @@ function MemberProfilePanel({ member, onClose }: { member: TeamMember; onClose: 
             </div>
           </div>
 
-          {/* Contact */}
+          {/* Contact — only shown when data is available */}
+          {(member.email || member.mobile) && (
           <div>
             <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Contact</h3>
             <div className="space-y-2">
+              {member.email && (
               <div className="flex items-center gap-3 text-sm">
                 <span className="w-16 text-muted-foreground text-xs">Email</span>
                 <a href={`mailto:${member.email}`} className="text-primary hover:underline font-medium">
                   {member.email}
                 </a>
               </div>
+              )}
+              {member.mobile && (
               <div className="flex items-center gap-3 text-sm">
                 <span className="w-16 text-muted-foreground text-xs">WhatsApp</span>
                 <a href={`tel:${member.mobile}`} className="text-primary hover:underline font-medium">
                   {member.mobile}
                 </a>
               </div>
+              )}
             </div>
           </div>
+          )}
 
           {/* Career / Achievements timeline */}
           {member.careerHistory.length > 0 && (
@@ -295,40 +300,54 @@ export default function OurTeamPage() {
   const [sortBy, setSortBy] = useState<SortOption>('Seniority');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
 
-  // ── Fetch all team data from Supabase ──
+  // ── Fetch all team data via SECURITY DEFINER RPCs ──
+  // These RPCs bypass RLS so the public page always shows ALL members
+  // regardless of whether the visitor is logged in or not.
   useEffect(() => {
     async function fetchTeamMembers() {
       setLoading(true);
       setError(null);
       try {
-        const [profilesRes, userRolesRes, careersRes, blogsRes] = await Promise.all([
-          supabase.from('profiles').select('*'),
-          supabase.from('user_roles').select('user_id, role_id, roles(name)'),
-          supabase.from('career_history').select('*').order('start_date', { ascending: false }),
-          supabase.from('blogs').select('*').eq('published', true).order('created_at', { ascending: false }),
+        const [profilesRes, careersRes, blogsRes] = await Promise.all([
+          supabase.rpc('get_public_team_members'),
+          supabase.rpc('get_public_career_history'),
+          supabase.rpc('get_public_published_blogs'),
         ]);
 
         if (profilesRes.error) throw profilesRes.error;
 
-        const profiles = (profilesRes.data || []) as Profile[];
-        const userRolesData = userRolesRes.data || [];
-        const careers = (careersRes.data || []) as CareerHistory[];
-        const blogs = (blogsRes.data || []) as Blog[];
+        const profiles: {
+          id: string;
+          full_name: string;
+          profile_photo_url: string | null;
+          about_self: string | null;
+          state: string | null;
+          current_region_or_college: string | null;
+          residence_district: string | null;
+          joined_on: string;
+          skills: string | null;
+          referred_by: string | null;
+          role_name: string | null;
+        }[] = profilesRes.data || [];
 
-        // Build role map — pick the highest-priority (lowest tier) role per user
-        const roleMap = new Map<string, string>();
-        (userRolesData as any[]).forEach((r) => {
-          const roleName: string | undefined = Array.isArray(r.roles)
-            ? r.roles[0]?.name
-            : r.roles?.name;
-          if (!roleName) return;
-          const existing = roleMap.get(r.user_id);
-          const existingTier = existing ? (roleConfig[existing]?.tier ?? 99) : 99;
-          const newTier = roleConfig[roleName]?.tier ?? 99;
-          if (newTier < existingTier) {
-            roleMap.set(r.user_id, roleName);
-          }
-        });
+        const careers: {
+          id: number;
+          user_id: string;
+          role_name: string;
+          start_date: string;
+          end_date: string | null;
+          key_achievements: string | null;
+          summary_of_work: string | null;
+        }[] = careersRes.data || [];
+
+        const blogs: {
+          id: string;
+          author_id: string;
+          title: string;
+          slug: string;
+          cover_image: string | null;
+          created_at: string;
+        }[] = blogsRes.data || [];
 
         // Build career-history map per user
         const careerMap = new Map<string, { title: string; date: string; description: string }[]>();
@@ -354,7 +373,7 @@ export default function OurTeamPage() {
           blogMap.set(b.author_id, list);
         });
 
-        // Compute referral counts client-side
+        // Compute referral counts client-side from the returned data
         const referralCounts = new Map<string, number>();
         profiles.forEach((p) => {
           if (p.referred_by) {
@@ -364,7 +383,7 @@ export default function OurTeamPage() {
 
         // Assemble TeamMember objects
         const members: TeamMember[] = profiles.map((p) => {
-          const role = roleMap.get(p.id) || 'Volunteer';
+          const role = p.role_name || 'Volunteer';
           const tier = roleConfig[role]?.tier ?? 5;
           return {
             id: p.id,
@@ -375,8 +394,8 @@ export default function OurTeamPage() {
             photo: p.profile_photo_url || undefined,
             missionQuote: p.about_self || '',
             joinedOn: p.joined_on,
-            email: p.email,
-            mobile: p.mobile_no || '',
+            email: '',   // not exposed on public page
+            mobile: '',  // not exposed on public page
             bio: p.about_self || '',
             referralCount: referralCounts.get(p.id) || 0,
             skills: p.skills ? p.skills.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
