@@ -21,6 +21,7 @@ import BlogsPage from "./pages/admin/Blogs";
 import MyImpactPage from "./pages/admin/MyImpact";
 import ProfilePage from "./pages/admin/Profile";
 import SettingsPage from "./pages/admin/Settings";
+import FooterSettingsPage from "./pages/admin/FooterSettings";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,14 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={["President", "Technical Head"]}>
                     <AuditLogsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="footer-settings"
+                element={
+                  <ProtectedRoute allowedRoles={["President", "Technical Head"]}>
+                    <FooterSettingsPage />
                   </ProtectedRoute>
                 }
               />

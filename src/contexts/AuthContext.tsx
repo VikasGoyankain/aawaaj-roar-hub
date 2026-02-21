@@ -132,27 +132,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /* ── Subsequent events: sign-in, sign-out, token refresh ── */
   useEffect(() => {
+    // Track last session ID so we can ignore duplicate SIGNED_IN events
+    // (supabase-js may re-fire them on visibility change / auto-refresh).
+    let lastSessionId: string | null = null;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         console.log('[Auth] event:', event, 'session:', !!newSession);
 
         if (event === 'SIGNED_OUT' || !newSession) {
           clearAuth();
+          lastSessionId = null;
           if (event === 'SIGNED_OUT') clearStorage();
           return;
         }
 
+        // Skip if this is the same session we already know about.
+        // supabase-js fires SIGNED_IN again on tab re-focus which causes
+        // a full re-render cycle (profileLoading true→false) that looks
+        // like a page refresh.
+        const sid = newSession.access_token;
+        if (event === 'SIGNED_IN' && sid === lastSessionId) {
+          return; // duplicate — ignore
+        }
+        lastSessionId = sid;
+
         setUser(newSession.user);
         setSession(newSession);
 
-        // Fetch profile on sign-in (but NOT on INITIAL_SESSION — that's handled by getSession above)
         if (event === 'SIGNED_IN') {
           loadProfile(newSession.user.id);
         }
 
-        // On token refresh, only re-fetch if we somehow lost the profile
-        if (event === 'TOKEN_REFRESHED' && !profile) {
-          loadProfile(newSession.user.id);
+        if (event === 'TOKEN_REFRESHED') {
+          lastSessionId = sid; // update tracked token
+          // Only re-fetch profile if we somehow lost it
+          if (!profile) {
+            loadProfile(newSession.user.id);
+          }
         }
       }
     );

@@ -28,6 +28,7 @@ import {
   Settings,
   UserCircle,
   Shield,
+  LayoutTemplate,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -53,6 +54,7 @@ const allLinks: SideLink[] = [
   { to: '/admin/my-impact', label: 'My Impact', icon: Heart, roles: ['Volunteer'] },
   { to: '/admin/audit-logs', label: 'Audit Logs', icon: ScrollText, roles: ['President', 'Technical Head'] },
   { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['President', 'Technical Head'] },
+  { to: '/admin/footer-settings', label: 'Footer', icon: LayoutTemplate, roles: ['President', 'Technical Head'] },
 ];
 
 export default function AdminLayout() {
