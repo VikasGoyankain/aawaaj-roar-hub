@@ -77,18 +77,41 @@ export function isValidIndianMobile(num: string): boolean {
   return /^[6-9]\d{9}$/.test(num);
 }
 
-/** Search for colleges in India using the Hipolabs Universities API */
-export async function searchColleges(query: string): Promise<string[]> {
-  if (!query || query.length < 2) return [];
+/** University entry from the AISHE local dataset */
+export interface UniversityEntry {
+  aisheCode: string;
+  name: string;
+  state: string;
+  district: string;
+}
+
+// Module-level cache so the JSON is only fetched once per session
+let _universitiesCache: UniversityEntry[] | null = null;
+
+async function loadUniversities(): Promise<UniversityEntry[]> {
+  if (_universitiesCache) return _universitiesCache;
   try {
-    const res = await fetch(
-      `http://universities.hipolabs.com/search?name=${encodeURIComponent(query)}&country=india`
-    );
-    const data: { name: string }[] = await res.json();
-    return data.map((c) => c.name).slice(0, 30);
+    const res = await fetch("/Data/universities.json");
+    const raw: { "Aishe Code": string; Name: string; State: string; District: string }[] =
+      await res.json();
+    _universitiesCache = raw.map((r) => ({
+      aisheCode: r["Aishe Code"],
+      name: r["Name"],
+      state: r["State"],
+      district: r["District"],
+    }));
+    return _universitiesCache;
   } catch {
     return [];
   }
+}
+
+/** Search for colleges/universities from the local AISHE dataset */
+export async function searchColleges(query: string): Promise<UniversityEntry[]> {
+  if (!query || query.length < 2) return [];
+  const universities = await loadUniversities();
+  const q = query.toLowerCase();
+  return universities.filter((u) => u.name.toLowerCase().includes(q)).slice(0, 30);
 }
 
 /** Comprehensive skills list for NGO volunteers */

@@ -20,6 +20,7 @@ import {
   isValidIndianMobile,
   searchColleges,
   SKILLS_LIST,
+  type UniversityEntry,
 } from "@/lib/india-data";
 
 /* ─── Types ─────────────────────────────────────────────────── */
@@ -174,12 +175,14 @@ function MultiSelectSkills({
 function CollegeSearch({
   value,
   onChange,
+  onSelect,
 }: {
   value: string;
   onChange: (v: string) => void;
+  onSelect: (u: UniversityEntry | null) => void;
 }) {
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<string[]>([]);
+  const [results, setResults] = useState<UniversityEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDrop, setShowDrop] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -196,6 +199,7 @@ function CollegeSearch({
   const handleChange = (raw: string) => {
     setQuery(raw);
     onChange(raw);
+    onSelect(null); // clear selection when user types
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (raw.length < 2) { setResults([]); setShowDrop(false); return; }
     debounceRef.current = setTimeout(async () => {
@@ -204,12 +208,13 @@ function CollegeSearch({
       setResults(data);
       setShowDrop(data.length > 0);
       setLoading(false);
-    }, 400);
+    }, 300);
   };
 
-  const pick = (name: string) => {
-    setQuery(name);
-    onChange(name);
+  const pick = (uni: UniversityEntry) => {
+    setQuery(uni.name);
+    onChange(uni.name);
+    onSelect(uni);
     setShowDrop(false);
   };
 
@@ -227,14 +232,17 @@ function CollegeSearch({
       </div>
       {showDrop && (
         <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border border-white/20 bg-[hsl(150_47%_12%)] shadow-xl overflow-hidden max-h-52 overflow-y-auto">
-          {results.map((name) => (
+          {results.map((uni) => (
             <button
-              key={name}
+              key={uni.aisheCode}
               type="button"
-              onMouseDown={(e) => { e.preventDefault(); pick(name); }}
+              onMouseDown={(e) => { e.preventDefault(); pick(uni); }}
               className="w-full text-left px-3 py-2.5 text-sm text-white/90 hover:bg-saffron/20 hover:text-white transition-colors font-body border-b border-white/5 last:border-0"
             >
-              {name}
+              <span className="block font-medium">{uni.name}</span>
+              <span className="block text-xs text-white/45 mt-0.5">
+                {uni.district}, {uni.state}
+              </span>
             </button>
           ))}
         </div>
@@ -814,8 +822,27 @@ export default function Register() {
   const [serveState, setServeState] = useState("");
   const [serveDistrict, setServeDistrict] = useState("");
   const [college, setCollege] = useState("");
+  const [aisheCode, setAisheCode] = useState("");
+  const [collegeState, setCollegeState] = useState("");
+  const [collegeDistrict, setCollegeDistrict] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [aboutSelf, setAboutSelf] = useState("");
+
+  // Called when user picks a university from the CollegeSearch dropdown
+  const handleCollegeSelect = useCallback((uni: UniversityEntry | null) => {
+    if (uni) {
+      setAisheCode(uni.aisheCode);
+      setCollegeState(uni.state);
+      setCollegeDistrict(uni.district);
+      // Auto-fill the serve-area state & district for campus roles
+      setServeState(uni.state);
+      setServeDistrict(uni.district);
+    } else {
+      setAisheCode("");
+      setCollegeState("");
+      setCollegeDistrict("");
+    }
+  }, []);
   const [problemDesc, setProblemDesc] = useState("");
   const [recommendedBy, setRecommendedBy] = useState("");
   const [dob, setDob] = useState<Date | undefined>();
@@ -864,6 +891,9 @@ export default function Register() {
         serve_area_pincode: !isVictim ? servePincode || null : null,
         college: !isVictim ? college || null : null,
         university: !isVictim ? college || null : null,
+        aishe_code: !isVictim ? aisheCode || null : null,
+        college_state: !isVictim ? collegeState || null : null,
+        college_district: !isVictim ? collegeDistrict || null : null,
         skills: !isVictim && skills.length ? skills.join(", ") : null,
         about_self: !isVictim ? aboutSelf.trim() || null : null,
         motivation: !isVictim ? aboutSelf.trim() || null : null,
@@ -1041,6 +1071,9 @@ export default function Register() {
                           setServeRole(null);
                           setVolunteerScope(null);
                           setCollege("");
+                          setAisheCode("");
+                          setCollegeState("");
+                          setCollegeDistrict("");
                           setServePincode("");
                           setServeState("");
                           setServeDistrict("");
@@ -1084,7 +1117,7 @@ export default function Register() {
                         <div className="space-y-2">
                           <ServeRoleOption
                             selected={serveRole === "regional_head"}
-                            onClick={() => { setServeRole("regional_head"); setVolunteerScope(null); setCollege(""); }}
+                            onClick={() => { setServeRole("regional_head"); setVolunteerScope(null); setCollege(""); setAisheCode(""); setCollegeState(""); setCollegeDistrict(""); }}
                             emoji="🗺️"
                             title="Regional Head"
                             desc="Manage your District-level problems"
@@ -1098,7 +1131,7 @@ export default function Register() {
                           />
                           <ServeRoleOption
                             selected={serveRole === "volunteer_sub"}
-                            onClick={() => { setServeRole("volunteer_sub"); setCollege(""); setServePincode(""); setServeState(""); setServeDistrict(""); }}
+                            onClick={() => { setServeRole("volunteer_sub"); setCollege(""); setAisheCode(""); setCollegeState(""); setCollegeDistrict(""); setServePincode(""); setServeState(""); setServeDistrict(""); }}
                             emoji="✊"
                             title="Volunteer"
                             desc="Be the backbone and make real impact"
@@ -1126,7 +1159,7 @@ export default function Register() {
                           <Label className="text-white/70 text-xs font-heading tracking-widest uppercase block">
                             Your College / University
                           </Label>
-                          <CollegeSearch value={college} onChange={setCollege} />
+                          <CollegeSearch value={college} onChange={setCollege} onSelect={handleCollegeSelect} />
                           <p className="text-white/35 text-xs font-body">Start typing to search across all Indian colleges</p>
                         </div>
                       )}
@@ -1152,7 +1185,7 @@ export default function Register() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => { setVolunteerScope("region"); setCollege(""); }}
+                              onClick={() => { setVolunteerScope("region"); setCollege(""); setAisheCode(""); setCollegeState(""); setCollegeDistrict(""); }}
                               className={cn(
                                 "px-4 py-3 rounded-lg border text-sm font-heading font-semibold tracking-wide transition-all",
                                 volunteerScope === "region"
@@ -1167,7 +1200,7 @@ export default function Register() {
                           {volunteerScope === "campus" && (
                             <div className="space-y-2 pt-2">
                               <Label className="text-white/60 text-xs font-heading tracking-wide block">Your College / University</Label>
-                              <CollegeSearch value={college} onChange={setCollege} />
+                              <CollegeSearch value={college} onChange={setCollege} onSelect={handleCollegeSelect} />
                             </div>
                           )}
 

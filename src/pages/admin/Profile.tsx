@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { uploadToImageKit } from '@/lib/imagekit';
 import { useAuth } from '@/contexts/AuthContext';
 import { getInitials, formatDate } from '@/lib/utils';
-import { ALL_STATES, STATES_AND_DISTRICTS, lookupPincode, SKILLS_LIST } from '@/lib/india-data';
+import { ALL_STATES, STATES_AND_DISTRICTS, lookupPincode, SKILLS_LIST, searchColleges, type UniversityEntry } from '@/lib/india-data';
 // Card components no longer used in this view — replaced with custom divs
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,88 @@ import {
   User, Mail, Phone, MapPin, Calendar, Shield, Camera, Lock, Save,
   Loader2, X, ChevronDown, Sparkles,
 } from 'lucide-react';
+
+/* ── University search for profile page ── */
+function ProfileUniversitySearch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (name: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [results, setResults] = useState<UniversityEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showDrop, setShowDrop] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Keep query in sync if parent resets the value (e.g. profile load)
+  useEffect(() => { setQuery(value); }, [value]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
+        setShowDrop(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleChange = (raw: string) => {
+    setQuery(raw);
+    onChange(raw);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (raw.length < 2) { setResults([]); setShowDrop(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      const data = await searchColleges(raw);
+      setResults(data);
+      setShowDrop(data.length > 0);
+      setLoading(false);
+    }, 300);
+  };
+
+  const pick = (uni: UniversityEntry) => {
+    setQuery(uni.name);
+    onChange(uni.name);
+    setShowDrop(false);
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="relative">
+        <Input
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => { if (results.length) setShowDrop(true); }}
+          placeholder="Search university…"
+          className="rounded-xl pr-8"
+        />
+        {loading && (
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+        )}
+      </div>
+      {showDrop && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-xl border bg-background shadow-lg overflow-hidden max-h-52 overflow-y-auto">
+          {results.map((uni) => (
+            <button
+              key={uni.aisheCode}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); pick(uni); }}
+              className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent transition-colors border-b last:border-0"
+            >
+              <span className="block font-medium">{uni.name}</span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {uni.district}, {uni.state}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const roleBadgeColor: Record<string, string> = {
   President: 'bg-purple-100 text-purple-700',
@@ -413,12 +495,13 @@ export default function ProfilePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">College / Region</Label>
-              <Input
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                University
+                <span className="ml-1.5 font-normal normal-case tracking-normal text-muted-foreground/60">(optional)</span>
+              </Label>
+              <ProfileUniversitySearch
                 value={form.current_region_or_college}
-                onChange={(e) => setForm({ ...form, current_region_or_college: e.target.value })}
-                placeholder="e.g., Delhi University, North Campus"
-                className="rounded-xl"
+                onChange={(name) => setForm({ ...form, current_region_or_college: name })}
               />
             </div>
           </div>
