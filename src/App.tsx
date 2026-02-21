@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Register from "./pages/Register";
 import OurTeam from "./pages/OurTeam";
 import NotFound from "./pages/NotFound";
+import Achievements from "./pages/Achievements";
 import Login from "./pages/admin/Login";
 import ForgotPassword from "./pages/admin/ForgotPassword";import ResetPassword from './pages/admin/ResetPassword';import Dashboard from "./pages/admin/Dashboard";
 import MembersPage from "./pages/admin/Members";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/register" element={<Register />} />
             <Route path="/our-team" element={<OurTeam />} />
+            <Route path="/achievements" element={<Achievements />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />

@@ -17,6 +17,7 @@ const Navbar = () => {
     { label: "Our Model", href: "/#model" },
     { label: "Focus Areas", href: "/#focus" },
     { label: "Our Team", href: "/our-team" },
+    { label: "Achievements", href: "/achievements" },
     { label: "Why Join", href: "/#why-join" },
   ];
 
