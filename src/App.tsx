@@ -23,6 +23,7 @@ import ReferralsPage from "./pages/admin/Referrals";
 import ProfilePage from "./pages/admin/Profile";
 import SettingsPage from "./pages/admin/Settings";
 import FooterSettingsPage from "./pages/admin/FooterSettings";
+import AssignmentsPage from "./pages/admin/Assignments";
 
 const queryClient = new QueryClient();
 
@@ -56,7 +57,7 @@ const App = () => (
               <Route
                 path="members"
                 element={
-                  <ProtectedRoute allowedRoles={['President', 'Technical Head', 'Regional Head', 'University President']}>
+                  <ProtectedRoute allowedRoles={['President', 'Technical Head', 'Regional Head', 'University President', 'Volunteer']}>
                     <MembersPage />
                   </ProtectedRoute>
                 }
@@ -66,6 +67,14 @@ const App = () => (
               <Route path="blogs" element={<BlogsPage />} />
               <Route path="my-impact" element={<MyImpactPage />} />
               <Route path="referrals" element={<ReferralsPage />} />
+              <Route
+                path="assignments"
+                element={
+                  <ProtectedRoute allowedRoles={['President', 'Technical Head', 'Regional Head', 'University President']}>
+                    <AssignmentsPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="profile" element={<ProfilePage />} />
               <Route
                 path="settings"

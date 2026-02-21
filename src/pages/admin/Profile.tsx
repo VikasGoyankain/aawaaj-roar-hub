@@ -28,9 +28,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import type { Assignment } from '@/lib/types';
 import {
-  User, Mail, Phone, MapPin, Calendar, Shield, Camera, Lock, Save,
-  Loader2, X, ChevronDown, Sparkles,
+  User, Mail, Phone, MapPin, MapPinned, Calendar, Shield, Camera, Lock, Save,
+  Loader2, X, ChevronDown, Sparkles, Info,
 } from 'lucide-react';
 
 /* ── University search for profile page ── */
@@ -234,6 +235,9 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [pincodeLoading, setPincodeLoading] = useState(false);
 
+  // Assignments (read-only)
+  const [myAssignments, setMyAssignments] = useState<Assignment[]>([]);
+
   // Password change
   const [pwdOpen, setPwdOpen] = useState(false);
   const [pwdForm, setPwdForm] = useState({ newPassword: '', confirmPassword: '' });
@@ -261,6 +265,18 @@ export default function ProfilePage() {
       });
     }
   }, [profile]);
+
+  // Fetch user's assignments
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('assignments')
+      .select('*')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (data) setMyAssignments(data as Assignment[]);
+      });
+  }, [user]);
 
   // Pincode auto-lookup
   const handlePincodeChange = async (val: string) => {
@@ -508,11 +524,12 @@ export default function ProfilePage() {
 
           <Separator />
 
-          {/* Location */}
+          {/* Personal Location */}
           <div>
             <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-              <MapPin className="h-4 w-4" /> Location
+              <MapPin className="h-4 w-4" /> Personal Location
             </h4>
+            <p className="mb-3 text-xs text-muted-foreground">Where you currently live — this is NOT your assigned working region.</p>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pincode</Label>
@@ -615,6 +632,48 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+
+      {/* My Assignments (read-only) */}
+      {myAssignments.length > 0 && (
+        <div className="rounded-2xl border border-border bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-border px-6 py-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8">
+              <MapPinned className="h-4 w-4 text-primary" />
+            </div>
+            <h3 className="text-sm font-semibold text-foreground">My Assignment</h3>
+          </div>
+          <div className="space-y-3 p-6">
+            {myAssignments.map((a) => (
+              <div key={a.id} className="flex items-start gap-3 rounded-xl border border-border bg-muted/20 p-4">
+                <Badge
+                  className={a.assignment_type === 'region' ? 'bg-blue-100 text-blue-700' : 'bg-cyan-100 text-cyan-700'}
+                  variant="secondary"
+                >
+                  {a.assignment_type === 'region' ? 'Region' : 'University'}
+                </Badge>
+                <div className="flex-1">
+                  {a.assignment_type === 'region' ? (
+                    <p className="text-sm font-medium text-foreground">
+                      {a.assigned_district}{a.assigned_state ? `, ${a.assigned_state}` : ''}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-medium text-foreground">
+                      {a.assigned_university || 'Not specified'}
+                    </p>
+                  )}
+                  {a.notes && <p className="mt-1 text-xs text-muted-foreground">{a.notes}</p>}
+                </div>
+              </div>
+            ))}
+            <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-3">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+              <p className="text-xs text-blue-700">
+                Assignments are managed by your seniors. Contact them or visit the Assignments page to request changes.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Security */}
       <div className="rounded-2xl border border-border bg-white shadow-sm">

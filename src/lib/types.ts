@@ -116,6 +116,21 @@ export interface AuditLog {
   created_at: string;
 }
 
+export type AssignmentType = 'region' | 'university';
+
+export interface Assignment {
+  id: number;
+  user_id: string;
+  assignment_type: AssignmentType;
+  assigned_state: string | null;
+  assigned_district: string | null;
+  assigned_university: string | null;
+  assigned_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── Composite helpers used in the UI ──
 
 export interface ProfileWithRoles extends Profile {

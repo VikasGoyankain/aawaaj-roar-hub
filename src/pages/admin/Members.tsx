@@ -4,7 +4,7 @@ import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate, getInitials, INDIAN_REGIONS } from '@/lib/utils';
 import { ALL_ROLES } from '@/lib/validations';
-import type { Profile, RoleName, ProfileWithRoles } from '@/lib/types';
+import type { Profile, RoleName, ProfileWithRoles, Assignment } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -105,6 +105,10 @@ export default function MembersPage() {
   // All roles from DB
   const [dbRoles, setDbRoles] = useState<{ id: number; name: RoleName }[]>([]);
 
+  // Current user's assignment (for scoping)
+  const [myAssignment, setMyAssignment] = useState<Assignment | null>(null);
+  const [assignmentLoaded, setAssignmentLoaded] = useState(false);
+
   useEffect(() => {
     supabase.from('roles').select('*').then(({ data }) => {
       if (data) setDbRoles(data as { id: number; name: RoleName }[]);
@@ -115,34 +119,146 @@ export default function MembersPage() {
   // 'global'     – President / Technical Head  → all members
   // 'regional'   – Regional Head              → members of own region
   // 'university' – University President        → volunteers of own college
-  // 'none'       – Content Head / Volunteer    → no access
+  // 'volunteer'  – Volunteer                   → read-only view of own region/college members
+  // 'none'       – Content Head (no member access)
   const accessTier = useMemo(() => {
     if (hasRole(['President', 'Technical Head'])) return 'global' as const;
     if (hasRole('Regional Head'))                return 'regional' as const;
     if (hasRole('University President'))         return 'university' as const;
+    if (hasRole('Volunteer'))                    return 'volunteer' as const;
     return 'none' as const;
   }, [hasRole]);
 
+  // Can this user manage (edit roles / remove) other members?
+  const canManage = hasRole(['President', 'Technical Head']);
+
+  // Fetch current user's assignment for scoping
+  useEffect(() => {
+    if (!user || accessTier === 'global') { setAssignmentLoaded(true); return; }
+
+    // For volunteers we don't know their type upfront — fetch any assignment
+    if (accessTier === 'volunteer') {
+      supabaseAdmin
+        .from('assignments')
+        .select('*')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (error) console.warn('[Members] volunteer assignment fetch:', error.message);
+          if (data) setMyAssignment(data as Assignment);
+          setAssignmentLoaded(true);
+        });
+      return;
+    }
+
+    const aType = accessTier === 'regional' ? 'region' : 'university';
+    supabaseAdmin
+      .from('assignments')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('assignment_type', aType)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) console.warn('[Members] assignment fetch:', error.message);
+        if (data) setMyAssignment(data as Assignment);
+        setAssignmentLoaded(true);
+      });
+  }, [user, accessTier]);
+
   const pageTitle = useMemo(() => {
-    if (accessTier === 'global')     return 'All Members';
-    if (accessTier === 'regional')   return me?.current_region_or_college ? `Members of ${me.current_region_or_college}` : 'Members of My Region';
-    if (accessTier === 'university') return me?.current_region_or_college ? `Volunteers of ${me.current_region_or_college}` : 'Volunteers of My College';
+    if (accessTier === 'global') return 'All Members';
+    if (accessTier === 'regional') {
+      const label = myAssignment?.assigned_district || myAssignment?.assigned_state || me?.residence_district || 'My Region';
+      return `Members of ${label}`;
+    }
+    if (accessTier === 'university') {
+      const label = myAssignment?.assigned_university || me?.current_region_or_college || 'My College';
+      return `Volunteers of ${label}`;
+    }
+    if (accessTier === 'volunteer') {
+      if (myAssignment?.assignment_type === 'university') {
+        return `Team at ${myAssignment.assigned_university || me?.current_region_or_college || 'My College'}`;
+      }
+      const label = myAssignment?.assigned_district || myAssignment?.assigned_state || me?.residence_district || 'My Region';
+      return `Team in ${label}`;
+    }
     return 'Members';
-  }, [accessTier, me]);
+  }, [accessTier, myAssignment, me]);
 
   const fetchMembers = useCallback(async () => {
+    if (!assignmentLoaded) return;
     setLoading(true);
 
-    // Get profiles — scoped by access tier
-    let q = supabase
+    // ── Resolve scoped user_ids via assignments table ──
+    // Uses supabaseAdmin to bypass RLS (same pattern as Submissions page).
+    let scopedUserIds: string[] | null = null;
+
+    const resolveRegion = async (dist: string | null | undefined, st: string | null | undefined) => {
+      let aQ = supabaseAdmin.from('assignments').select('user_id').eq('assignment_type', 'region');
+      if (dist) aQ = aQ.ilike('assigned_district', dist);
+      else if (st) aQ = aQ.ilike('assigned_state', st);
+      else return [];
+      const { data } = await aQ;
+      return (data || []).map((r: { user_id: string }) => r.user_id);
+    };
+
+    const resolveUniversity = async (uni: string | null | undefined) => {
+      if (!uni) return [];
+      const { data } = await supabaseAdmin
+        .from('assignments')
+        .select('user_id')
+        .eq('assignment_type', 'university')
+        .ilike('assigned_university', uni);
+      return (data || []).map((r: { user_id: string }) => r.user_id);
+    };
+
+    if (accessTier === 'regional') {
+      const dist = myAssignment?.assigned_district || me?.residence_district;
+      const st = myAssignment?.assigned_state || me?.state;
+      scopedUserIds = await resolveRegion(dist, st);
+      if (user && !scopedUserIds.includes(user.id)) scopedUserIds.push(user.id);
+    } else if (accessTier === 'university') {
+      const uni = myAssignment?.assigned_university || me?.current_region_or_college;
+      scopedUserIds = await resolveUniversity(uni);
+      if (user && !scopedUserIds.includes(user.id)) scopedUserIds.push(user.id);
+    } else if (accessTier === 'volunteer') {
+      // Volunteer — determine their scope from assignment_type
+      if (myAssignment?.assignment_type === 'university') {
+        const uni = myAssignment.assigned_university || me?.current_region_or_college;
+        scopedUserIds = await resolveUniversity(uni);
+      } else if (myAssignment?.assignment_type === 'region') {
+        const dist = myAssignment.assigned_district || me?.residence_district;
+        const st = myAssignment.assigned_state || me?.state;
+        scopedUserIds = await resolveRegion(dist, st);
+      } else {
+        // No assignment — fallback: try profile residence_district
+        const dist = me?.residence_district;
+        if (dist) {
+          scopedUserIds = await resolveRegion(dist, me?.state);
+        } else {
+          scopedUserIds = user ? [user.id] : [];
+        }
+      }
+      if (user && !scopedUserIds.includes(user.id)) scopedUserIds.push(user.id);
+    }
+
+    // ── Get profiles — use supabaseAdmin to bypass RLS ──
+    let q = supabaseAdmin
       .from('profiles')
       .select('*', { count: 'exact' })
       .order('joined_on', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-    // Scope filter: Regional Head and University President only see their group
-    if ((accessTier === 'regional' || accessTier === 'university') && me?.current_region_or_college) {
-      q = q.eq('current_region_or_college', me.current_region_or_college);
+    // Scope filter using assignment-based user_ids
+    if (scopedUserIds !== null) {
+      if (scopedUserIds.length === 0) {
+        setMembers([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      }
+      q = q.in('id', scopedUserIds);
     }
 
     if (search) {
@@ -159,7 +275,7 @@ export default function MembersPage() {
 
     // Get roles for these users
     const ids = pList.map((p) => p.id);
-    const { data: urData } = await supabase
+    const { data: urData } = await supabaseAdmin
       .from('user_roles')
       .select('user_id, role_id, roles(name)')
       .in('user_id', ids);
@@ -177,8 +293,8 @@ export default function MembersPage() {
 
     let combined: ProfileWithRoles[] = pList.map((p) => ({ ...p, roles: roleMap.get(p.id) || [] }));
 
-    // University President: only show Volunteers from their college
-    if (accessTier === 'university') {
+    // University-scoped: only show Volunteers from their college
+    if (accessTier === 'university' || (accessTier === 'volunteer' && myAssignment?.assignment_type === 'university')) {
       combined = combined.filter((m) => m.roles.length === 0 || m.roles.includes('Volunteer'));
     }
 
@@ -189,7 +305,7 @@ export default function MembersPage() {
 
     setMembers(combined);
     setLoading(false);
-  }, [page, search, roleFilter, accessTier, me?.current_region_or_college]);
+  }, [page, search, roleFilter, accessTier, myAssignment, assignmentLoaded, user, me]);
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
   useEffect(() => { setPage(0); }, [search, roleFilter]);
@@ -423,7 +539,7 @@ export default function MembersPage() {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // No-access guard: Content Head / Volunteer have no business here
+  // No-access guard: Content Head has no business here
   if (accessTier === 'none') {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
@@ -456,9 +572,10 @@ export default function MembersPage() {
             {accessTier === 'global' && `${totalCount} total members`}
             {accessTier === 'regional' && `${totalCount} member${totalCount !== 1 ? 's' : ''} in your region`}
             {accessTier === 'university' && `${totalCount} volunteer${totalCount !== 1 ? 's' : ''} in your college`}
+            {accessTier === 'volunteer' && `${totalCount} team member${totalCount !== 1 ? 's' : ''}`}
           </p>
         </div>
-        {hasRole(['President', 'Technical Head']) && (
+        {canManage && (
           <Button onClick={() => setAddOpen(true)} className="bg-[#F4C430] text-[#002D04] hover:bg-[#dab22a]">
             <UserPlus className="mr-2 h-4 w-4" /> Add Member
           </Button>
@@ -494,7 +611,7 @@ export default function MembersPage() {
               <TableHead>Roles</TableHead>
               <TableHead className="hidden md:table-cell">District / College</TableHead>
               <TableHead className="hidden md:table-cell">Joined</TableHead>
-              {hasRole(['President', 'Technical Head']) && <TableHead className="w-10" />}
+              {canManage && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -526,7 +643,7 @@ export default function MembersPage() {
                     {m.residence_district || m.current_region_or_college || '—'}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-gray-500">{formatDate(m.joined_on)}</TableCell>
-                  {hasRole(['President', 'Technical Head']) && (
+                  {canManage && (
                     <TableCell>
                       {m.id !== me?.id && (
                         <DropdownMenu>

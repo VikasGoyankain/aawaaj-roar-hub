@@ -31,6 +31,7 @@ import {
   Shield,
   LayoutTemplate,
   GitBranch,
+  MapPinned,
   Search,
   type LucideIcon,
 } from 'lucide-react';
@@ -62,9 +63,10 @@ interface NavGroup {
 const allLinks: SideLink[] = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true, roles: [], group: 'overview' },
   { to: '/admin/my-impact', label: 'My Impact', icon: Heart, roles: ['Volunteer'], group: 'overview' },
-  { to: '/admin/members', label: 'Members', icon: Users, roles: ['President', 'Technical Head', 'Regional Head', 'University President'], group: 'people' },
+  { to: '/admin/members', label: 'Members', icon: Users, roles: ['President', 'Technical Head', 'Regional Head', 'University President', 'Volunteer'], group: 'people' },
   { to: '/admin/submissions', label: 'Submissions', icon: FileText, roles: ['President', 'Technical Head', 'Regional Head', 'University President'], group: 'people' },
   { to: '/admin/referrals', label: 'Referrals', icon: GitBranch, roles: ['President', 'Technical Head', 'Regional Head'], group: 'people' },
+  { to: '/admin/assignments', label: 'Assignments', icon: MapPinned, roles: ['President', 'Technical Head', 'Regional Head', 'University President'], group: 'people' },
   { to: '/admin/career-history', label: 'Career Tree', icon: History, roles: ['President', 'Technical Head', 'Content Head'], group: 'content' },
   { to: '/admin/blogs', label: 'Blogs', icon: BookOpen, roles: ['President', 'Technical Head', 'Content Head'], group: 'content' },
   { to: '/admin/audit-logs', label: 'Audit Logs', icon: ScrollText, roles: ['President', 'Technical Head'], group: 'system' },
